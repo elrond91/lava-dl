@@ -2,6 +2,7 @@ import os
 import json
 import random
 import numpy as np
+from scipy.stats import norm
 
 import torch
 from torch.utils.data import Dataset
@@ -18,6 +19,65 @@ try:
     from src.io.box_filtering import filter_boxes
 except ModuleNotFoundError:
     print(" Error! ")
+
+
+Z_func = lambda x: norm(x.mean(), x.std()).cdf(x)
+
+Z_func_u1 = lambda x: np.uint8(Z_func(x)*255)
+
+def make_float_histo(events, img=None, width=304, height=240, 
+                     return_norm_cum_spike = True,
+                     return_image = False,
+                     return_cum_spike = False):
+    """
+    display function that accumulates negative events and positive, centers the image about the non spike, and returns
+    graded images - this is important for injecting this images into layers of pre-trained NN as sigma delta
+    args :
+        - events structured numpy array
+        - img (numpy array, height x width x 3) optional array to paint event on.
+        - width int
+        - height int
+        - return_norm_cum_spike (bool) return normalized spike cumulative 2D array
+        - return_image          (bool) return normalized scaled to uint8 image cumulative spike
+        - return_cum_spike      (bool) return cumulative spikes per pixel
+
+    return: (numpy array, height x width x 3)
+        - 3D array (default) : normalized spike cumulative 
+        - 3D array (opt)     : normalized scaled to uint8 image cumulative spike
+        - 3D array (opt)     : return cumulative spikes per pixel
+
+    """
+    
+    if img is None:
+        img = np.zeros((height, width), dtype=int)
+    else: # if an array was already allocated just reset it
+        img[...] = 0
+    valid = (events['x'] >= 0 ) & (events['x'] < width) & (events['y'] >= 0 ) & (events['y'] < height)
+    events = events[valid]
+    ## this reoutine speeds up by 10 times the for loop on each pixel but slow down by 12x compared to single bit set
+    events
+
+    index_E1 = events['p']>0 #positive spikes the converse are the negative ones
+    b = np.ravel_multi_index([events['y'].tolist(), events['x'].tolist()], (height, width))
+    b1 = b[index_E1] # all positive spikes pixel locations
+    b0 = b[~index_E1] # all negative spikes pixel locations
+    ### all positive spikes are cumulated at each pixel location translated into 1D matrix see b above
+    ### unique returns the unique location (u) and its frequency (ct)
+    u, ct = np.unique(b1, return_counts=True)
+    img.ravel()[u] = ct
+    ### all negative spikes are cumulated for each pixel location as above and subtracted 
+    u, ct = np.unique(b0, return_counts=True)
+    img.ravel()[u] -= ct
+
+    output = []
+    if return_norm_cum_spike:
+        output.append(np.dstack([Z_func(img)]*3))
+    if return_image:
+        output.append(np.dstack([Z_func_u1(img)]*3))
+    if return_cum_spike:
+        output.append(np.dstack([img]*3))
+        
+    return output
 
 
 
@@ -72,11 +132,13 @@ class _PropheseeAutomotive(Dataset):
             min_box_side = 20
             boxes = filter_boxes(boxes, int(1e5), min_box_diag, min_box_side)
             
-            frame = np.zeros((height, width, 2), dtype=np.uint8)
-            valid = (events['x'] >= 0 ) & (events['x'] < width) & (events['y'] >= 0 ) & (events['y'] < height)
-            events = events[valid]
-            frame[events['y'][events['p'] == 1], events['x'][events['p'] == 1], 0] = 1
-            frame[events['y'][events['p'] == 0], events['x'][events['p'] == 0], 1] = 1
+            frame = make_float_histo(events, width=width, height=height)[0]
+            
+            # frame = np.zeros((height, width, 2), dtype=np.uint8)
+            # valid = (events['x'] >= 0 ) & (events['x'] < width) & (events['y'] >= 0 ) & (events['y'] < height)
+            # events = events[valid]
+            # frame[events['y'][events['p'] == 1], events['x'][events['p'] == 1], 0] = 1
+            # frame[events['y'][events['p'] == 0], events['x'][events['p'] == 0], 1] = 1
             
             objects = []
             size = {'height': height, 'width': width}

@@ -336,8 +336,9 @@ def train_events(config):
                 header_list += [f'IOU   loss: {loss_distr[4].item()}']
         
         os.makedirs("my_model", exist_ok=True)
-        torch.save((net.state_dict(), optimizer.state_dict()), "my_model/network.pt")
+        torch.save((net.state_dict(), optimizer.state_dict()), "my_model/checkpoint.pt")
         if hasattr(module, 'export_hdf5'):
+            torch.save(module.state_dict(), 'my_model/network.pt')
             module.load_state_dict(torch.load("my_model/network.pt"))
             module.export_hdf5("my_model/network.net")                
         checkpoint = Checkpoint.from_directory("my_model")
@@ -419,7 +420,7 @@ def test_best_model(best_result_input):
     elif best_result["model"] == 'yolo_kp_events':
         module.init_model((448, 448, 2))
     
-    checkpoint_path = os.path.join(best_result_input.checkpoint.to_directory(), "network.pt")
+    checkpoint_path = os.path.join(best_result_input.checkpoint.to_directory(), "checkpoint.pt")
 
     model_state, _ = torch.load(checkpoint_path)
     net.load_state_dict(model_state)
@@ -531,7 +532,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         'lambda_obj': tune.loguniform(0.01, 100.0),
         'lambda_cls': tune.loguniform(0.01, 100.0),
         'lambda_iou':tune.loguniform(0.01, 100.0),
-        'alpha_iou': tune.loguniform(0.0, 1.0),
+        'alpha_iou': tune.loguniform(1e-4, 1.0),
         'label_smoothing': tune.uniform(1e-4, 1.0),
         'track_iter': 1000,
         # Training

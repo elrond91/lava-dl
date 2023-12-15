@@ -78,7 +78,16 @@ def train_events(config):
                                    'current_decay': config["cuba_current_decay"],
                                    'voltage_decay': config["cuba_voltage_decay"],
                                    'tau_grad': config["cuba_tau_grad"],
-                                   'scale_grad': config["cuba_scale_grad"]}).to(device)
+                                   'scale_grad': config["cuba_scale_grad"]},
+                      weight_scale={'weight_scale_1': config['weight_scale_1'],
+                                    'weight_scale_2': config['weight_scale_2'],
+                                    'weight_scale_3': config['weight_scale_3'],
+                                    'weight_scale_4': config['weight_scale_4'],
+                                    'weight_scale_5': config['weight_scale_5'],
+                                    'weight_scale_6': config['weight_scale_6'],
+                                    'weight_scale_7': config['weight_scale_7'],
+                                    'weight_scale_8': config['weight_scale_8'],
+                                    'weight_scale_9': config['weight_scale_9']}).to(device)
         module = net
     else:
         net = torch.nn.DataParallel(Network(threshold=config["threshold"],
@@ -90,7 +99,16 @@ def train_events(config):
                                                          'current_decay': config["cuba_current_decay"],
                                                          'voltage_decay': config["cuba_voltage_decay"],
                                                          'tau_grad': config["cuba_tau_grad"],
-                                                         'scale_grad': config["cuba_scale_grad"]}).to(device),
+                                                         'scale_grad': config["cuba_scale_grad"]},
+                                            weight_scale={'weight_scale_1': config['weight_scale_1'],
+                                                          'weight_scale_2': config['weight_scale_2'],
+                                                          'weight_scale_3': config['weight_scale_3'],
+                                                          'weight_scale_4': config['weight_scale_4'],
+                                                          'weight_scale_5': config['weight_scale_5'],
+                                                          'weight_scale_6': config['weight_scale_6'],
+                                                          'weight_scale_7': config['weight_scale_7'],
+                                                          'weight_scale_8': config['weight_scale_8'],
+                                                          'weight_scale_9': config['weight_scale_9']}).to(device),
                                     device_ids=config["gpu"])
         module = net.module
     
@@ -163,13 +181,13 @@ def train_events(config):
             train_set = PropheseeAutomotiveSmall(root=config["path"], train=True, 
                                                 augment_prob=config["aug_prob"], 
                                                 randomize_seq=True,
-                                                events_ratio = config["event_ratio"],
+                                                events_ratio = config["delta_t"] * ( 0.01) + 0.05,
                                                 delta_t=config["delta_t"],
                                                 seq_len=config["seq_len"])
             
             test_set = PropheseeAutomotiveSmallTrain(root=config["path"], train=False,
                                                     randomize_seq=True,
-                                                    events_ratio = config["event_ratio"],
+                                                    events_ratio = config["delta_t"] * ( 0.01) + 0.05,
                                                     delta_t=config["delta_t"],
                                                     seq_len=config["seq_len"])
             print('Using PropheseeAutomotiveSmall Dataset')
@@ -177,12 +195,12 @@ def train_events(config):
             train_set = obd.dataset.PropheseeAutomotive(root=config["path"], train=True, 
                                                         augment_prob=config["aug_prob"], 
                                                         randomize_seq=True,
-                                                        events_ratio = config["event_ratio"],
+                                                        events_ratio = config["delta_t"] * ( 0.01) + 0.05 ,
                                                         delta_t=config["delta_t"],
                                                         seq_len=config["seq_len"])
             test_set = obd.dataset.PropheseeAutomotive(root=config["path"], train=False,
                                                     randomize_seq=True,
-                                                    events_ratio = config["event_ratio"],
+                                                    events_ratio = config["delta_t"] * ( 0.01) + 0.05 ,
                                                     delta_t=config["delta_t"],
                                                     seq_len=config["seq_len"])
             
@@ -317,25 +335,19 @@ def train_events(config):
                 header_list += [f'Class loss: {loss_distr[3].item()}']
                 header_list += [f'IOU   loss: {loss_distr[4].item()}']
         
-        if stats.testing.best_accuracy is True:
-            # Here we save a checkpoint. It is automatically registered with
-            # Ray Tune and can be accessed through `train.get_checkpoint()`
-            # API in future iterations.
-            os.makedirs("my_model", exist_ok=True)
-            torch.save((net.state_dict(), optimizer.state_dict()), "my_model/network.pt")
-            with open('my_model/args.txt', 'wt') as f:
-                for arg, value in sorted(vars(config).items()):
-                    f.write('{} : {}\n'.format(arg, value))
-            if hasattr(module, 'export_hdf5'):
-                module.load_state_dict(torch.load("my_model/network.pt"))
-                module.export_hdf5("my_model/network.net")
-            checkpoint = Checkpoint.from_directory("my_model")
-        
+        os.makedirs("my_model", exist_ok=True)
+        torch.save((net.state_dict(), optimizer.state_dict()), "my_model/network.pt")
+        if hasattr(module, 'export_hdf5'):
+            module.load_state_dict(torch.load("my_model/network.pt"))
+            module.export_hdf5("my_model/network.net")                
+        checkpoint = Checkpoint.from_directory("my_model")
         train.report({"loss": stats.testing.loss, "accuracy": stats.testing.accuracy}, checkpoint=checkpoint)
     print("Finished Training")
     
 
-def test_best_model(best_result):
+def test_best_model(best_result_input):
+    
+    best_result = best_result_input.config
     
     classes_output = {'BDD100K': 11, 'PropheseeAutomotive': 7}
     print('Using GPUs {}'.format(best_result["gpu"]))
@@ -364,7 +376,16 @@ def test_best_model(best_result):
                                    'current_decay': best_result["cuba_current_decay"],
                                    'voltage_decay': best_result["cuba_voltage_decay"],
                                    'tau_grad': best_result["cuba_tau_grad"],
-                                   'scale_grad': best_result["cuba_scale_grad"]}).to(device)
+                                   'scale_grad': best_result["cuba_scale_grad"]},
+                      weight_scale={'weight_scale_1': best_result['weight_scale_1'],
+                                    'weight_scale_2': best_result['weight_scale_2'],
+                                    'weight_scale_3': best_result['weight_scale_3'],
+                                    'weight_scale_4': best_result['weight_scale_4'],
+                                    'weight_scale_5': best_result['weight_scale_5'],
+                                    'weight_scale_6': best_result['weight_scale_6'],
+                                    'weight_scale_7': best_result['weight_scale_7'],
+                                    'weight_scale_8': best_result['weight_scale_8'],
+                                    'weight_scale_9': best_result['weight_scale_9']}).to(device)
         module = net
     else:
         net = torch.nn.DataParallel(Network(threshold=best_result["threshold"],
@@ -376,7 +397,16 @@ def test_best_model(best_result):
                                                          'current_decay': best_result["cuba_current_decay"],
                                                          'voltage_decay': best_result["cuba_voltage_decay"],
                                                          'tau_grad': best_result["cuba_tau_grad"],
-                                                         'scale_grad': best_result["cuba_scale_grad"]}).to(device),
+                                                         'scale_grad': best_result["cuba_scale_grad"]},
+                                            weight_scale={'weight_scale_1': best_result['weight_scale_1'],
+                                                          'weight_scale_2': best_result['weight_scale_2'],
+                                                          'weight_scale_3': best_result['weight_scale_3'],
+                                                          'weight_scale_4': best_result['weight_scale_4'],
+                                                          'weight_scale_5': best_result['weight_scale_5'],
+                                                          'weight_scale_6': best_result['weight_scale_6'],
+                                                          'weight_scale_7': best_result['weight_scale_7'],
+                                                          'weight_scale_8': best_result['weight_scale_8'],
+                                                          'weight_scale_9': best_result['weight_scale_9']}).to(device),
                                     device_ids=best_result["gpu"])
         module = net.module
         
@@ -389,7 +419,7 @@ def test_best_model(best_result):
     elif best_result["model"] == 'yolo_kp_events':
         module.init_model((448, 448, 2))
     
-    checkpoint_path = os.path.join(best_result.checkpoint.to_directory(), "network.pt")
+    checkpoint_path = os.path.join(best_result_input.checkpoint.to_directory(), "network.pt")
 
     model_state, _ = torch.load(checkpoint_path)
     net.load_state_dict(model_state)
@@ -412,14 +442,14 @@ def test_best_model(best_result):
         if best_result["subset"]:   
             test_set = PropheseeAutomotiveSmallTrain(root=best_result["path"], train=False,
                                                     randomize_seq=True,
-                                                    events_ratio = best_result["event_ratio"],
+                                                    events_ratio = best_result["delta_t"] * ( 0.01) + 0.05 ,
                                                     delta_t=best_result["delta_t"],
                                                     seq_len=best_result["seq_len"])
             print('Using PropheseeAutomotiveSmall Dataset')
         else:      
             test_set = obd.dataset.PropheseeAutomotive(root=best_result["path"], train=False,
                                                     randomize_seq=True,
-                                                    events_ratio = best_result["event_ratio"],
+                                                    events_ratio = best_result["delta_t"] * ( 0.01) + 0.05 ,
                                                     delta_t=best_result["delta_t"],
                                                     seq_len=best_result["seq_len"])
         test_loader = DataLoader(test_set,
@@ -460,7 +490,7 @@ def test_best_model(best_result):
 def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     config = {
         'gpu': [0],
-        'b': 1,
+        'b': tune.choice([2, 4, 8]),
         'verbose': False,
         # Model
         'model': 'yolo_kp_events',
@@ -469,44 +499,53 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         'sp_lam': 0.01,
         'sp_rate': 0.01,
         # Optimizer
-        'lr': 0.0001,
+        'lr': tune.loguniform(1e-5, 1e-2),
         'wd': 1e-5,
-        'lrf': 0.01,
+        'lrf': tune.loguniform(1e-4, 1e-1),
         # Network/SDNN
         'threshold': 0.1,
-        'tau_grad': 0.1,
-        'scale_grad': 0.2,
-        'clip': 10,
+        'tau_grad':  tune.loguniform(0.01, 10.0),
+        'scale_grad': tune.loguniform(0.1, 40.0),
+        'clip': tune.loguniform(0.1, 10000.0),
         # Network/SDNN
         'cuba_threshold': 0.1,
-        'cuba_current_decay': 1,
-        'cuba_voltage_decay': 1,
-        'cuba_tau_grad': 0.1,
-        'cuba_scale_grad': 15,
+        'cuba_current_decay': tune.loguniform(0.01, 1.0),
+        'cuba_voltage_decay': tune.loguniform(0.01, 1.0),
+        'cuba_tau_grad': tune.loguniform(0.01, 10.0),
+        'cuba_scale_grad': tune.loguniform(0.1, 40.0),
+        # Network/SDNN weight_scale
+        'weight_scale_1': tune.choice([1, 3, 5]),
+        'weight_scale_2': tune.choice([1, 3, 5]),
+        'weight_scale_3': tune.choice([1, 3, 5]),
+        'weight_scale_4': tune.choice([1, 3, 5]),
+        'weight_scale_5': tune.choice([1, 3, 5]),
+        'weight_scale_6': tune.choice([1, 3, 5]),
+        'weight_scale_7': tune.choice([1, 3, 5]),
+        'weight_scale_8': tune.choice([1, 3, 5]),
+        'weight_scale_9': tune.choice([1, 3, 5]),
         # Target generation
         'tgt_iou_thr': 0.5,
         # YOLO loss
-        'lambda_coord': 1.0,
-        'lambda_noobj': 2.0,
-        'lambda_obj': 2.0,
-        'lambda_cls': 4.0,
-        'lambda_iou': 2.0,
-        'alpha_iou': 0.8,
-        'label_smoothing': 0.1,
+        'lambda_coord': tune.loguniform(0.01, 100.0),
+        'lambda_noobj': tune.loguniform(0.01, 100.0),
+        'lambda_obj': tune.loguniform(0.01, 100.0),
+        'lambda_cls': tune.loguniform(0.01, 100.0),
+        'lambda_iou':tune.loguniform(0.01, 100.0),
+        'alpha_iou': tune.loguniform(0.0, 1.0),
+        'label_smoothing': tune.uniform(1e-4, 1.0),
         'track_iter': 1000,
         # Training
-        'epoch': 2,
+        'epoch': 200,
         'warmup': 10,
         # dataset
         'dataset': 'PropheseeAutomotive',
         'subset': True,
         'seq_len': 32,
-        'delta_t': 1,
-        'event_ratio': 0.07,
+        'delta_t': tune.choice([1, 3, 5, 10]),
         'path': '/home/lecampos/data/prophesee',
         'output_dir': '.',
-        'num_workers': 1,
-        'aug_prob': 0.2,
+        'num_workers': 4,
+        'aug_prob': 0.0,
         'clamp_max': 5.0,
     }
     scheduler = ASHAScheduler(

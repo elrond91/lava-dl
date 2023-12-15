@@ -52,7 +52,19 @@ class Network(YOLOBase):
                      'current_decay': 1,
                      'voltage_decay': 0.1,
                      'tau_grad': 0.1,
-                     'scale_grad': 15}) -> None:
+                     'scale_grad': 15},
+                 weight_scale: dict = {
+                     'weight_scale_1': 3,
+                     'weight_scale_2': 3,
+                     'weight_scale_3': 1,
+                     'weight_scale_4': 3,
+                     'weight_scale_5': 3,
+                     'weight_scale_6': 3,
+                     'weight_scale_7': 3,
+                     'weight_scale_8': 3,
+                     'weight_scale_9': 3,
+                     
+                     }) -> None:
         super().__init__(num_classes=num_classes,
                          anchors=anchors,
                          clamp_max=clamp_max)
@@ -88,15 +100,15 @@ class Network(YOLOBase):
         neuron_cuba_kwargs = {**cuba_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
 
         self.blocks = torch.nn.ModuleList([
-            slayer.block.cuba.Conv(neuron_cuba_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=3, **block_8_kwargs),
-            slayer.block.cuba.Conv(neuron_cuba_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=3, **block_8_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs,  32,  64, 3, padding=1, stride=2, weight_scale=1, **block_8_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs,  64, 128, 3, padding=1, stride=2, weight_scale=3, **block_8_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs, 128, 256, 3, padding=1, stride=1, weight_scale=3, **block_8_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 256, 3, padding=1, stride=2, weight_scale=3, **block_8_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=3, **block_5_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs, 512, 256, 1, padding=0, stride=1, weight_scale=3, **block_5_kwargs),
-            slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=3, **block_5_kwargs),
+            slayer.block.cuba.Conv(neuron_cuba_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
+            slayer.block.cuba.Conv(neuron_cuba_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs, 128, 256, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_5'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 256, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_6'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_7'], **block_5_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
         ])
 
         self.heads = torch.nn.ModuleList([

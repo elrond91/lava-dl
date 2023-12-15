@@ -30,7 +30,7 @@ class PropheseeAutomotiveSmall(obd.dataset.PropheseeAutomotive):
                          events_ratio=events_ratio, augment_prob=augment_prob)
 
     def __len__(self):
-        return 45
+        return 5
     
 class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
     def __init__(self,
@@ -47,7 +47,7 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
                          events_ratio=events_ratio, augment_prob=augment_prob)
 
     def __len__(self):
-        return 5
+        return 2
 
     
 def train_events(config):

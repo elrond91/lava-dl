@@ -16,6 +16,7 @@ from typing import Any, Dict, Tuple
 try:
     from src.io.psee_loader import PSEELoader
     from src.io.box_filtering import filter_boxes
+    from src.io.box_loading import reformat_boxes
 except ModuleNotFoundError:
     print(" Error! ")
 
@@ -25,12 +26,14 @@ class _PropheseeAutomotive(Dataset):
                  root: str = '.',
                  delta_t: int = 1,
                  seq_len: int = 32,
-                 events_ratio: float = 0.07,
+                 events_ratio: float = 0.01,
+                 time_to_keep_bbox: float = 20,
                  randomize_seq: bool = False,
                  train: bool = False) -> None:
         super().__init__()
         self.cat_name = []
         self.delta_t = delta_t * 1000
+        self.time_to_keep_bbox = time_to_keep_bbox * 1000
         self.seq_len = seq_len
         self.randomize_seq = randomize_seq
         self.events_ratio_threshold = events_ratio
@@ -61,6 +64,23 @@ class _PropheseeAutomotive(Dataset):
         events_ratio = np.count_nonzero(events_bbox) / pixels_area
         return events_ratio > self.events_ratio_threshold
 
+    def track_bbox(self, to_annotate, annotations):
+        for annotation in annotations['annotation']['object']:
+            if annotation['id'] == to_annotate['id'] and \
+                to_annotate['time'] - annotation['time'] < self.time_to_keep_bbox:
+                    # review that new bbox is close to past
+                    new_bbox = to_annotate['bndbox']
+                    old_bbox = annotation['bndbox']
+                    
+                    new_center = ((new_bbox['xmin'] + new_bbox['xmax']) // 2, (new_bbox['ymin'] + new_bbox['ymax']) // 2)
+                    old_center = ((old_bbox['xmin'] + old_bbox['xmax']) // 2, (old_bbox['ymin'] + old_bbox['ymax']) // 2)
+                    
+                    if np.linalg.norm(np.asarray(new_center) - np.asarray(old_center)) < 10:
+                        return True
+        
+        # there are no bbox to keep
+        return False
+
     def get_seq(self, video, bbox_video):
         images = []
         annotations = []
@@ -72,7 +92,10 @@ class _PropheseeAutomotive(Dataset):
                 boxes = bbox_video.load_delta_t(self.delta_t)
             except (AssertionError, IndexError):
                 pass
-
+            
+            seq_time = video.current_time
+            boxes = reformat_boxes(boxes)
+            
             min_box_diag = 60
             min_box_side = 20
             boxes = filter_boxes(boxes, int(1e5), min_box_diag, min_box_side)
@@ -90,7 +113,7 @@ class _PropheseeAutomotive(Dataset):
             size = {'height': height, 'width': width}
 
             for idx in range(boxes.shape[0]):
-                if (int(boxes['w'][idx]) > 0) and (int(boxes['h'][idx]) > 0):
+                if (int(boxes['w'][idx]) > 0) and (int(boxes['h'][idx]) > 0) and boxes['class_confidence'][idx] > 0.9:
                     bndbox = {
                         'xmin': int(boxes['x'][idx]),
                         'ymin': int(boxes['y'][idx]),
@@ -99,31 +122,40 @@ class _PropheseeAutomotive(Dataset):
                         'ymax': int(boxes['y'][idx])
                         + int(boxes['h'][idx])}
                     name = self.idx_map[boxes['class_id'][idx]]
-                    if (bndbox['xmax'] < width) and \
-                        (bndbox['ymax'] < height) and \
-                            (bndbox['xmin'] > 0) and (bndbox['ymin'] > 0):
-                        if len(images) == 0:
+                    
+                    if bndbox['xmin'] < width and bndbox['ymin'] < height \
+                        and bndbox['xmax'] > 0 and bndbox['ymax'] > 0:
+                    
+                        bndbox['xmax'] = width if bndbox['xmax'] > width else bndbox['xmax']
+                        bndbox['ymax'] = height if bndbox['ymax'] > height else bndbox['ymax']
+                        
+                        bndbox['xmin'] = 0 if bndbox['xmin'] < 0 else bndbox['xmin']
+                        bndbox['ymin'] = 0 if bndbox['ymin'] < 0 else bndbox['ymin']
+                        
+                        if np.abs(bndbox['xmax'] - bndbox['xmin']) > 10 and np.abs(bndbox['ymax'] - bndbox['ymin']) > 10:
+                            
+                            to_annotate = {'id': boxes['class_id'][idx],
+                                           'name': name,
+                                           'bndbox': bndbox,
+                                           'time': seq_time}
+                            
                             if self.validate_bbox(frame, bndbox):
-                                objects.append({'id': boxes['class_id'][idx],
-                                                'name': name,
-                                                'bndbox': bndbox})
-                        else:
-                            objects.append({'id': boxes['class_id'][idx],
-                                            'name': name,
-                                            'bndbox': bndbox})
+                                objects.append(to_annotate)
+                            else:
+                                if len(annotations) > 0:
+                                    if self.track_bbox(to_annotate, annotations[-1]):
+                                        objects.append(to_annotate)                              
 
             if len(objects) == 0:
-                if len(annotations) == 0:
-                    continue
-                annotations.append(annotations[-1])
-            else:
-                annotation = {'size': size, 'object': objects}
-                annotations.append({'annotation': annotation})
-
+                continue
+                
+            annotation = {'size': size, 'object': objects}
+            annotations.append({'annotation': annotation})
             images.append(frame)
 
             if len(images) >= self.seq_len:
                 break
+            
         return images, annotations
 
     def get_name(self, index):
@@ -149,6 +181,7 @@ class _PropheseeAutomotive(Dataset):
         images, annotations = self.get_seq(video, bbox_video)
 
         if len(images) != self.seq_len or len(annotations) != self.seq_len:
+            print('Failed to get seq, trying to reset ... ')
             video.reset()
             bbox_video.reset()
             images, annotations = self.get_seq(video, bbox_video)
@@ -195,9 +228,11 @@ class PropheseeAutomotive(Dataset):
         images, annotations = [], []
         while (len(images) != self.seq_len) and \
                 (len(annotations) != self.seq_len):
+            print('trying ... ' + str(index))
             images, annotations = self.datasets[dataset_idx][index]
             index = np.random.randint(0, len(self.datasets[0]) - 1)
 
+        print('done')
         # flip left right
         if np.random.random() < self.augment_prob:
             for idx in range(len(images)):

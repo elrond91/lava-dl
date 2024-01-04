@@ -98,3 +98,12 @@ class Network(YOLOBase):
                                             in zip(outputs,  self.anchors)],
                                            dim=1)
         return outputs, []
+    
+    
+    
+    
+    """
+    1.- as it is tiny_yolo_v3               [float][quant][tensorRT]  [GPU][jetson]
+    2.- remove maxpool tiny_yolo_v3_str     [float][quant]
+    3.- single head remove maxpool tiny_yolo_v3_str [float][quant]
+    """

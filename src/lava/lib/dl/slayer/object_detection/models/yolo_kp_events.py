@@ -98,6 +98,9 @@ class Network(YOLOBase):
         block_8_kwargs = dict(weight_norm=True, delay_shift=False, pre_hook_fx=quantize_8bit)
         neuron_kwargs = {**sdnn_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
         neuron_cuba_kwargs = {**cuba_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
+        
+        # everyring sigma delta
+        
 
         self.blocks = torch.nn.ModuleList([
             slayer.block.cuba.Conv(neuron_cuba_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),

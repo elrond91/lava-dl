@@ -30,7 +30,7 @@ class PropheseeAutomotiveSmall(obd.dataset.PropheseeAutomotive):
                          events_ratio=events_ratio, augment_prob=augment_prob)
 
     def __len__(self):
-        return 50
+        return 200
     
 class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
     def __init__(self,
@@ -47,7 +47,7 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
                          events_ratio=events_ratio, augment_prob=augment_prob)
 
     def __len__(self):
-        return 5
+        return 45
 
     
 def train_events(config):
@@ -235,6 +235,8 @@ def train_events(config):
 
     print('Training/Testing Loop')
     
+    nan_counter = 0
+    
     for epoch in range(config["epoch"]):
         ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
 
@@ -334,7 +336,6 @@ def train_events(config):
                 header_list += [f'NoObj loss: {loss_distr[2].item()}']
                 header_list += [f'Class loss: {loss_distr[3].item()}']
                 header_list += [f'IOU   loss: {loss_distr[4].item()}']
-        
         os.makedirs("my_model", exist_ok=True)
         torch.save((net.state_dict(), optimizer.state_dict()), "my_model/checkpoint.pt")
         if hasattr(module, 'export_hdf5'):
@@ -343,6 +344,14 @@ def train_events(config):
             module.export_hdf5("my_model/network.net")                
         checkpoint = Checkpoint.from_directory("my_model")
         train.report({"loss": stats.testing.loss, "accuracy": stats.testing.accuracy}, checkpoint=checkpoint)
+        if stats.testing.loss > 1e10:
+            nan_counter += 1
+        else:
+            nan_counter = 0
+        
+        if nan_counter > 5:
+            print("NaN ending ...")
+        
     print("Finished Training")
     
 
@@ -488,7 +497,7 @@ def test_best_model(best_result_input):
     print("Best trial test set accuracy: {}".format(processed / total))
 
 
-def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
+def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2, cpus_per_trial=4):
     config = {
         'gpu': [0],
         'b': tune.choice([2, 4, 8]),
@@ -518,12 +527,12 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         'weight_scale_1': tune.choice([1, 3, 5]),
         'weight_scale_2': tune.choice([1, 3, 5]),
         'weight_scale_3': tune.choice([1, 3, 5]),
-        'weight_scale_4': tune.choice([1, 3, 5]),
-        'weight_scale_5': tune.choice([1, 3, 5]),
-        'weight_scale_6': tune.choice([1, 3, 5]),
-        'weight_scale_7': tune.choice([1, 3, 5]),
-        'weight_scale_8': tune.choice([1, 3, 5]),
-        'weight_scale_9': tune.choice([1, 3, 5]),
+        'weight_scale_4': 3,
+        'weight_scale_5': 3,
+        'weight_scale_6': 3,
+        'weight_scale_7': 3,
+        'weight_scale_8': 3,
+        'weight_scale_9': 3,
         # Target generation
         'tgt_iou_thr': 0.5,
         # YOLO loss
@@ -557,7 +566,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     tuner = tune.Tuner(
         tune.with_resources(
             tune.with_parameters(train_events),
-            resources={"cpu": 4, "gpu": gpus_per_trial}
+            resources={"cpu": cpus_per_trial, "gpu": gpus_per_trial}
         ),
         tune_config=tune.TuneConfig(
             metric="loss",
@@ -579,4 +588,6 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
 
     test_best_model(best_result)
 
-main(num_samples=2, max_num_epochs=2, gpus_per_trial=1)
+main(num_samples=30, max_num_epochs=50, gpus_per_trial=8, cpus_per_trial=80)
+
+#main(num_samples=2, max_num_epochs=5, gpus_per_trial=1)

@@ -100,10 +100,7 @@ class _PropheseeAutomotive(Dataset):
             min_box_side = 20
             boxes = filter_boxes(boxes, int(1e5), min_box_diag, min_box_side)
 
-            frame = np.zeros((height, width, 2), dtype=np.uint8)
-            
-            # events['x'] = (events['x'] * new_width / width).astype(int)
-            
+            frame = np.zeros((height, width, 2), dtype=np.uint8)            
             
             valid = (events['x'] >= 0) & (events['x'] < width) & \
                     (events['y'] >= 0) & (events['y'] < height)
@@ -159,7 +156,7 @@ class _PropheseeAutomotive(Dataset):
                 
             annotation = {'size': size, 'object': objects}
             annotations.append({'annotation': annotation})
-            images.append(frame)
+            images.append({'size': size, 'events': events})
 
             if len(images) >= self.seq_len:
                 break
@@ -173,8 +170,6 @@ class _PropheseeAutomotive(Dataset):
     def __getitem__(self, index: int) -> Tuple[torch.tensor, Dict[Any, Any]]:
         video = self.videos[index]
         bbox_video = self.bbox_videos[index]
-        
-        print(self.get_name(index))
 
         if self.randomize_seq:
             skip_time = (video.duration_s - 0.1) - \
@@ -191,7 +186,6 @@ class _PropheseeAutomotive(Dataset):
         images, annotations = self.get_seq(video, bbox_video)
 
         if len(images) != self.seq_len or len(annotations) != self.seq_len:
-            print('Failed to get seq, trying to reset ... ')
             video.reset()
             bbox_video.reset()
             images, annotations = self.get_seq(video, bbox_video)
@@ -238,11 +232,9 @@ class PropheseeAutomotive(Dataset):
         images, annotations = [], []
         while (len(images) != self.seq_len) and \
                 (len(annotations) != self.seq_len):
-            print('trying ... ' + str(index))
             images, annotations = self.datasets[dataset_idx][index]
             index = np.random.randint(0, len(self.datasets[0]) - 1)
 
-        print('done')
         # flip left right
         if np.random.random() < self.augment_prob:
             for idx in range(len(images)):

@@ -1,7 +1,7 @@
 # Copyright (C) 2023 Intel Corporation
 # SPDX-License-Identifier:  BSD-3-Clause
 
-from typing import List, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 from PIL.Image import Image, Transpose
@@ -43,32 +43,28 @@ def flip_ud(image: Image) -> Image:
     """
     return Image.transpose(image, Transpose.FLIP_TOP_BOTTOM)
 
-def resize_events_frame_channel(events: np.array,
-                                size: Tuple[Height, Width]) -> np.array:
-    height = events.shape[0]
-    width = events.shape[1]
-    # need to match array
-    pixels_keep = [(height // size[0]) * size[0], (width // size[1]) * size[1]]
-    events = events[:pixels_keep[0], :pixels_keep[1]]
-    shape = (size[0], height // size[0], size[1], width // size[1])
-    img = events.reshape(shape)
-    return img[:, 0, :, 0]
+def events2frame(events: np.array,
+                 size: Tuple[Height, Width]) -> np.array:
+    
+    frame = np.zeros((size[0], size[1], 2), dtype=np.uint8)
+                  
+    valid = (events['x'] >= 0) & (events['x'] < size[1]) & \
+            (events['y'] >= 0) & (events['y'] < size[0])
+    events = events[valid]
+    frame[events['y'][events['p'] == 1],
+            events['x'][events['p'] == 1], 0] = 1
+    frame[events['y'][events['p'] == 0],
+            events['x'][events['p'] == 0], 1] = 1
+    
+    return frame
 
-def resize_events_frame(events: np.array,
+def resize_events_frame(data: Dict,
                         size: Tuple[Height, Width]) -> np.array:
-    
-    # img = np.zeros((size[0], size[1], 2))
-    # img[:, :, 0] = resize_events_frame_channel(events[:, :, 0], size)
-    # img[:, :, 1] = resize_events_frame_channel(events[:, :, 1], size)
-    
-    
-    height = events.shape[0]
-    width = events.shape[1]
-
-    img = np.asarray(
-        [[events[int(height * rows / size[0])][int(width * cols / size[1])]
-          for cols in range(size[1])] for rows in range(size[0])])
-    return img
+    height, width = data['size']['height'], data['size']['width']
+    events = data['events']
+    events['y'] = (events['y'] * (size[0] / height)).astype(int)
+    events['x'] = (events['x'] * (size[1] / width)).astype(int)
+    return events2frame(events, size)
 
 
 def fliplr_events(events: np.array) -> np.array:

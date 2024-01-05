@@ -57,8 +57,8 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-gpu', type=int, default=[0], help='which gpu(s) to use', nargs='+')
-    parser.add_argument('-b',   type=int, default=1,  help='batch size for dataloader')
+    parser.add_argument('-gpu', type=int, default=[3], help='which gpu(s) to use', nargs='+')
+    parser.add_argument('-b',   type=int, default=2,  help='batch size for dataloader')
     parser.add_argument('-verbose', default=False, action='store_true', help='lots of debug printouts')
     # Model
     parser.add_argument('-model', type=str, default='yolo_kp_events', help='network model')
@@ -105,10 +105,10 @@ if __name__ == '__main__':
     parser.add_argument('-subset',      default=False, action='store_true', help='use PropheseeAutomotive12 subset')
     parser.add_argument('-seq_len',  type=int, default=32, help='number of time continous frames')
     parser.add_argument('-delta_t',  type=int, default=1, help='time window for events')
-    parser.add_argument('-event_ratio',  type=float, default=0.07, help='filtering bbox')
+    parser.add_argument('-event_ratio',  type=float, default=0.04, help='filtering bbox')
     parser.add_argument('-path',        type=str,   default='/home/lecampos/data/prophesee', help='dataset path')
     parser.add_argument('-output_dir',  type=str,   default='.', help='directory in which to put log folders')
-    parser.add_argument('-num_workers', type=int,   default=1, help='number of dataloader workers')
+    parser.add_argument('-num_workers', type=int,   default=30, help='number of dataloader workers')
     parser.add_argument('-aug_prob',    type=float, default=0.2, help='training augmentation probability')
     parser.add_argument('-clamp_max',   type=float, default=5.0, help='exponential clamp in height/width calculation')
 

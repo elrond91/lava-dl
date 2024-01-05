@@ -212,6 +212,15 @@ class PropheseeAutomotive(Dataset):
         self.bb_transform = transforms.Compose([
             lambda x: bbutils.resize_bounding_boxes(x, size),
         ])
+        
+        self.img_transform_fliplr = transforms.Compose([
+            lambda x: resize_events_frame(x, size),
+            lambda x: fliplr_events(x),
+            lambda x: torch.FloatTensor(x.copy()).permute([2, 0, 1])])
+        self.bb_transform_fliplr = transforms.Compose([
+            lambda x: bbutils.resize_bounding_boxes(x, size),
+            lambda x: bbutils.fliplr_bounding_boxes(x),
+        ])
 
         self.datasets = [_PropheseeAutomotive(root=root,
                                               delta_t=delta_t,
@@ -236,15 +245,20 @@ class PropheseeAutomotive(Dataset):
             index = np.random.randint(0, len(self.datasets[0]) - 1)
 
         # flip left right
+        # if np.random.random() < self.augment_prob:
+        #     for idx in range(len(images)):
+        #         images[idx] = fliplr_events(images[idx])
+        #         annotations[idx] = bbutils.fliplr_bounding_boxes(
+        #             annotations[idx])
+                
         if np.random.random() < self.augment_prob:
-            for idx in range(len(images)):
-                images[idx] = fliplr_events(images[idx])
-                annotations[idx] = bbutils.fliplr_bounding_boxes(
-                    annotations[idx])
-
-        image = torch.cat([torch.unsqueeze(self.img_transform(img), -1)
-                           for img in images], dim=-1)
-        annotations = [self.bb_transform(ann) for ann in annotations]
+            image = torch.cat([torch.unsqueeze(self.img_transform_fliplr(img), -1)
+                            for img in images], dim=-1)
+            annotations = [self.bb_transform_fliplr(ann) for ann in annotations]
+        else:
+            image = torch.cat([torch.unsqueeze(self.img_transform(img), -1)
+                            for img in images], dim=-1)
+            annotations = [self.bb_transform(ann) for ann in annotations]
 
         # [C, H, W, T], [bbox] * T
         # list in time

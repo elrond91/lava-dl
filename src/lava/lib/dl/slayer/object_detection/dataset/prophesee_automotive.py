@@ -101,6 +101,10 @@ class _PropheseeAutomotive(Dataset):
             boxes = filter_boxes(boxes, int(1e5), min_box_diag, min_box_side)
 
             frame = np.zeros((height, width, 2), dtype=np.uint8)
+            
+            # events['x'] = (events['x'] * new_width / width).astype(int)
+            
+            
             valid = (events['x'] >= 0) & (events['x'] < width) & \
                     (events['y'] >= 0) & (events['y'] < height)
             events = events[valid]
@@ -113,7 +117,11 @@ class _PropheseeAutomotive(Dataset):
             size = {'height': height, 'width': width}
 
             for idx in range(boxes.shape[0]):
-                if (int(boxes['w'][idx]) > 0) and (int(boxes['h'][idx]) > 0) and boxes['class_confidence'][idx] > 0.9:
+                if (int(boxes['w'][idx]) > 0) and \
+                        (int(boxes['h'][idx]) > 0) and \
+                        (int(boxes['w'][idx]) < width) and \
+                        (int(boxes['h'][idx]) < height) and \
+                        boxes['class_confidence'][idx] > 0.9:
                     bndbox = {
                         'xmin': int(boxes['x'][idx]),
                         'ymin': int(boxes['y'][idx]),
@@ -165,6 +173,8 @@ class _PropheseeAutomotive(Dataset):
     def __getitem__(self, index: int) -> Tuple[torch.tensor, Dict[Any, Any]]:
         video = self.videos[index]
         bbox_video = self.bbox_videos[index]
+        
+        print(self.get_name(index))
 
         if self.randomize_seq:
             skip_time = (video.duration_s - 0.1) - \

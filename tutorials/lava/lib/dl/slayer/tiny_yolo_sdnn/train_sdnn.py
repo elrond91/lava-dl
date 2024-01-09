@@ -35,7 +35,7 @@ class PropheseeAutomotiveSmall(obd.dataset.PropheseeAutomotive):
                          events_ratio=events_ratio, augment_prob=augment_prob)
 
     def __len__(self):
-        return 45
+        return 6
     
 class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
     def __init__(self,
@@ -52,7 +52,7 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
                          events_ratio=events_ratio, augment_prob=augment_prob)
 
     def __len__(self):
-        return 5
+        return 1
 
 
 if __name__ == '__main__':
@@ -76,39 +76,39 @@ if __name__ == '__main__':
     parser.add_argument('-scale_grad', type=float, default=0.2, help='surrogate gradient scale')
     parser.add_argument('-clip',       type=float, default=10, help='gradient clipping limit')
     # Network/SDNN
-    parser.add_argument('-cuba_threshold',  type=float, default=0.1, help='neuron threshold')
-    parser.add_argument('-cuba_current_decay',   type=float, default=1, help='surrogate gradient time constant')
-    parser.add_argument('-cuba_voltage_decay', type=float, default=1, help='surrogate gradient scale')
-    parser.add_argument('-cuba_tau_grad',       type=float, default=0.1, help='gradient clipping limit')
-    parser.add_argument('-cuba_scale_grad',       type=float, default=15, help='gradient clipping limit')
+    parser.add_argument('-cuba_threshold',  type=float, default=1.25, help='neuron threshold')
+    parser.add_argument('-cuba_current_decay',   type=float, default=0.25, help='surrogate gradient time constant')
+    parser.add_argument('-cuba_voltage_decay', type=float, default=0.03, help='surrogate gradient scale')
+    parser.add_argument('-cuba_tau_grad',       type=float, default=0.03, help='gradient clipping limit')
+    parser.add_argument('-cuba_scale_grad',       type=float, default=3, help='gradient clipping limit')
     # Pretrained model
     parser.add_argument('-load', type=str, default='', help='pretrained model')
     # Target generation
     parser.add_argument('-tgt_iou_thr', type=float, default=0.5, help='ignore iou threshold in target generation')
     # YOLO loss
-    parser.add_argument('-lambda_coord',    type=float, default=1.0, help='YOLO coordinate loss lambda')
-    parser.add_argument('-lambda_noobj',    type=float, default=2.0, help='YOLO no-object loss lambda')
-    parser.add_argument('-lambda_obj',      type=float, default=2.0, help='YOLO object loss lambda')
-    parser.add_argument('-lambda_cls',      type=float, default=4.0, help='YOLO class loss lambda')
-    parser.add_argument('-lambda_iou',      type=float, default=2.0, help='YOLO iou loss lambda')
+    parser.add_argument('-lambda_coord',    type=float, default=8.0, help='YOLO coordinate loss lambda')
+    parser.add_argument('-lambda_noobj',    type=float, default=8.0, help='YOLO no-object loss lambda')
+    parser.add_argument('-lambda_obj',      type=float, default=8.0, help='YOLO object loss lambda')
+    parser.add_argument('-lambda_cls',      type=float, default=8.0, help='YOLO class loss lambda')
+    parser.add_argument('-lambda_iou',      type=float, default=8.0, help='YOLO iou loss lambda')
     parser.add_argument('-alpha_iou',       type=float, default=0.8, help='YOLO loss object target iou mixture factor')
     parser.add_argument('-label_smoothing', type=float, default=0.1, help='YOLO class cross entropy label smoothing')
     parser.add_argument('-track_iter',      type=int,  default=1000, help='YOLO loss tracking interval')
     # Experiment
-    parser.add_argument('-exp',  type=str, default='',   help='experiment differentiater string')
+    parser.add_argument('-exp',  type=str, default='sigma',   help='experiment differentiater string')
     parser.add_argument('-seed', type=int, default=None, help='random seed of the experiment')
     # Training
     parser.add_argument('-epoch',  type=int, default=200, help='number of epochs to run')
     parser.add_argument('-warmup', type=int, default=10,  help='number of epochs to warmup')
     # dataset
     parser.add_argument('-dataset',     type=str,   default='PropheseeAutomotive', help='dataset to use [BDD100K, PropheseeAutomotive]')
-    parser.add_argument('-subset',      default=False, action='store_true', help='use PropheseeAutomotive12 subset')
+    parser.add_argument('-subset',      default=True, action='store_true', help='use PropheseeAutomotive12 subset')
     parser.add_argument('-seq_len',  type=int, default=32, help='number of time continous frames')
     parser.add_argument('-delta_t',  type=int, default=1, help='time window for events')
     parser.add_argument('-event_ratio',  type=float, default=0.04, help='filtering bbox')
     parser.add_argument('-path',        type=str,   default='/home/lecampos/data/prophesee', help='dataset path')
     parser.add_argument('-output_dir',  type=str,   default='.', help='directory in which to put log folders')
-    parser.add_argument('-num_workers', type=int,   default=30, help='number of dataloader workers')
+    parser.add_argument('-num_workers', type=int,   default=50, help='number of dataloader workers')
     parser.add_argument('-aug_prob',    type=float, default=0.2, help='training augmentation probability')
     parser.add_argument('-clamp_max',   type=float, default=5.0, help='exponential clamp in height/width calculation')
 
@@ -302,6 +302,9 @@ if __name__ == '__main__':
     print('Training/Testing Loop')
     
     for epoch in range(args.epoch):
+        
+        with open("/home/lecampos/elrond91/lava-dl/mean_std.txt", "a") as myfile:
+            myfile.write( "---- Epoch: " + str(epoch) + "\n")
         
         t_st = datetime.now()
         ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)

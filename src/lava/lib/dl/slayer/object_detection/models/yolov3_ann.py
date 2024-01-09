@@ -83,6 +83,7 @@ class ScalePrediction(nn.Module):
 
 class Network(YOLOBase):
     def __init__(self,
+                 yolo_type: str = '',
                  num_classes: int = 80,
                  anchors: List[List[Tuple[float, float]]] = [ 
                         [(0.28, 0.22), (0.38, 0.48), (0.9, 0.78)], 

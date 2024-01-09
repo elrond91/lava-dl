@@ -17,6 +17,9 @@ def _yolo(x: torch.tensor,
           anchors: torch.tensor,
           clamp_max: float = 5.0) -> torch.tensor:
     # converts raw predictions to bounding box predictions.
+    # x shape:
+    # batch_size, anchors size, feature_map dims, feature_map dims, [tx, ty, tw, th, p_score, classes 11], sqe_lenght time 
+    
     _, _, H, W, _, _ = x.shape
     range_y, range_x = torch.meshgrid(
         torch.arange(H, dtype=x.dtype, device=x.device),
@@ -29,12 +32,30 @@ def _yolo(x: torch.tensor,
                 + range_x[None, None, :, :, None, None]) / W
     y_center = (torch.sigmoid(x[:, :, :, :, 1:2, :])
                 + range_y[None, None, :, :, None, None]) / H
+    # width_test = torch.exp(x[:, :, :, :, 2:3, :])
+    # height_test = torch.exp(x[:, :, :, :, 3:4, :])
+    
+    # sizes = [(width_test.size(dim=0) * width_test.size(dim=1) * 
+    #          width_test.size(dim=2) * width_test.size(dim=3) * 
+    #          width_test.size(dim=4) * width_test.size(dim=5)),
+    #          (height_test.size(dim=0) * height_test.size(dim=1) * 
+    #           height_test.size(dim=2) * height_test.size(dim=3) * 
+    #           height_test.size(dim=4) * height_test.size(dim=5))]
+    
+    # print('width bigger than clamp_max ', width_test[width_test > clamp_max].size()[0], ' from ', sizes[0])
+    # print('height bigger than clamp_max', height_test[height_test > clamp_max].size()[0], ' from ', sizes[1])
+    # print('ratio ' , width_test[width_test > clamp_max].size()[0] / sizes[0], 
+    #       ' , ',  height_test[height_test > clamp_max].size()[0] / sizes[1])
     width = (torch.exp(
         x[:, :, :, :, 2:3, :].clamp(
             max=clamp_max)) * anchor_x[None, :, None, None, None, None]) / W
     height = (torch.exp(
         x[:, :, :, :, 3:4, :].clamp(
             max=clamp_max)) * anchor_y[None, :, None, None, None, None]) / H
+    # width = (torch.exp(
+    #     x[:, :, :, :, 2:3, :]) * anchor_x[None, :, None, None, None, None]) / W
+    # height = (torch.exp(
+    #     x[:, :, :, :, 3:4, :]) * anchor_y[None, :, None, None, None, None]) / H
     confidence = torch.sigmoid(x[:, :, :, :, 4:5, :])
     classes = torch.softmax(x[:, :, :, :, 5:, :], dim=-2)
 

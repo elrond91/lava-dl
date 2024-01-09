@@ -19,11 +19,12 @@ from lava.lib.dl.slayer import obd
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-gpu', type=int, default=[0], help='which gpu(s) to use', nargs='+')
-    parser.add_argument('-b',   type=int, default=16,  help='batch size for dataloader')
+    parser.add_argument('-gpu', type=int, default=[4], help='which gpu(s) to use', nargs='+')
+    parser.add_argument('-b',   type=int, default=8,  help='batch size for dataloader')
     parser.add_argument('-verbose', default=False, action='store_true', help='lots of debug printouts')
     # Model
     parser.add_argument('-model', type=str, default='tiny_yolov3_ann', help='network model')
+    parser.add_argument('-model_type', type=str, default='single-head', help='ann submodel [complete, str, single-head]')
     # Optimizer
     parser.add_argument('-lr',  type=float, default=0.0001, help='initial learning rate')
     parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
@@ -53,10 +54,11 @@ if __name__ == '__main__':
     parser.add_argument('-output_dir',  type=str,   default='.', help='directory in which to put log folders')
     parser.add_argument('-num_workers', type=int,   default=8, help='number of dataloader workers')
     parser.add_argument('-aug_prob',    type=float, default=0.2, help='training augmentation probability')
+   
 
     args = parser.parse_args()
 
-    identifier = f'{args.model}_' + args.exp if len(args.exp) > 0 else args.model
+    identifier = f'{args.model}_{args.model_type}' + args.exp if len(args.exp) > 0 else f'{args.model}_{args.model_type}'
     if args.seed is not None:
         torch.manual_seed(args.seed)
         identifier += '_{}'.format(args.seed)
@@ -84,16 +86,31 @@ if __name__ == '__main__':
     print('Creating Network')
     if args.model == 'yolov3_ann':
         Network = obd.models.yolov3_ann.Network
+        yolo_anchors =  [ 
+                        [(0.28, 0.22), (0.38, 0.48), (0.9, 0.78)], 
+                        [(0.07, 0.15), (0.15, 0.11), (0.14, 0.29)], 
+                        [(0.02, 0.03), (0.04, 0.07), (0.08, 0.06)], 
+                    ]
     elif args.model == 'tiny_yolov3_ann':
         Network = obd.models.tiny_yolov3_ann.Network
+        yolo_anchors = [[(0.28, 0.22), 
+                    (0.38, 0.48), 
+                    (0.9, 0.78)], 
+                [(0.07, 0.15), 
+                    (0.15, 0.11), 
+                    (0.14, 0.29)]] if args.model_type != 'single-head' else  \
+                [[(0.28, 0.22), (0.38, 0.48), (0.9, 0.78)]]
     else:
         raise RuntimeError(f'Model type {args.model=} not supported!')
     
     if len(args.gpu) == 1:
-        net = Network(num_classes=classes_output[args.dataset]).to(device)
+        net = Network(num_classes=classes_output[args.dataset], 
+                      yolo_type=args.model_type,
+                      anchors=yolo_anchors).to(device)
         module = net
     else:
-        net = torch.nn.DataParallel(Network(num_classes=classes_output[args.dataset]).to(device), device_ids=args.gpu)
+        net = torch.nn.DataParallel(Network(num_classes=classes_output[args.dataset], 
+                                            yolo_type=args.model_type).to(device), device_ids=args.gpu)
         module = net.module
 
     print('Loading Network')
@@ -285,56 +302,56 @@ if __name__ == '__main__':
         stats.update()
         stats.plot(path=trained_folder + '/')
         
-        b = -1        
-        image = Image.fromarray(np.uint8(
-            inputs[b, :, :, :].cpu().data.numpy().transpose([1, 2, 0]) * 255
-        ))
+        b = 1        
+        # image = Image.fromarray(np.uint8(
+        #     inputs[b, :, :, :].cpu().data.numpy().transpose([1, 2, 0]) * 255
+        # ))
             
-        annotation = obd.bbox.utils.annotation_from_tensor(
-            predictions[0][b],
-            {'height': image.height, 'width': image.width},
-            test_set.classes,
-            confidence_th=0
-        )
-        marked_img = obd.bbox.utils.mark_bounding_boxes(
-            image, annotation['annotation']['object'],
-            box_color_map=box_color_map, thickness=5
-        )
+        # annotation = obd.bbox.utils.annotation_from_tensor(
+        #     predictions[0][b],
+        #     {'height': image.height, 'width': image.width},
+        #     test_set.classes,
+        #     confidence_th=0
+        # )
+        # marked_img = obd.bbox.utils.mark_bounding_boxes(
+        #     image, annotation['annotation']['object'],
+        #     box_color_map=box_color_map, thickness=5
+        # )
         
-        image = Image.fromarray(np.uint8(
-            inputs[b, :, :, :].cpu().data.numpy().transpose([1, 2, 0]) * 255
-        ))
+        # image = Image.fromarray(np.uint8(
+        #     inputs[b, :, :, :].cpu().data.numpy().transpose([1, 2, 0]) * 255
+        # ))
 
-        annotation = obd.bbox.utils.annotation_from_tensor(
-            bboxes_t[0][b],
-            {'height': image.height, 'width': image.width},
-            test_set.classes,
-            confidence_th=0
-        )
-        marked_gt = obd.bbox.utils.mark_bounding_boxes(
-            image, annotation['annotation']['object'],
-            box_color_map=box_color_map, thickness=5
-        )
+        # annotation = obd.bbox.utils.annotation_from_tensor(
+        #     bboxes_t[0][b],
+        #     {'height': image.height, 'width': image.width},
+        #     test_set.classes,
+        #     confidence_th=0
+        # )
+        # marked_gt = obd.bbox.utils.mark_bounding_boxes(
+        #     image, annotation['annotation']['object'],
+        #     box_color_map=box_color_map, thickness=5
+        # )
 
-        marked_images = Image.new('RGB', (marked_img.width + marked_gt.width,
-                                          marked_img.height))
-        marked_images.paste(marked_img, (0, 0))
-        marked_images.paste(marked_gt, (marked_img.width, 0))
+        # marked_images = Image.new('RGB', (marked_img.width + marked_gt.width,
+        #                                   marked_img.height))
+        # marked_images.paste(marked_img, (0, 0))
+        # marked_images.paste(marked_gt, (marked_img.width, 0))
 
-        writer.add_image('Prediction',
-                            transforms.PILToTensor()(marked_images),
-                            epoch)
+        # writer.add_image('Prediction',
+        #                     transforms.PILToTensor()(marked_images),
+        #                     epoch)
         if stats.testing.best_accuracy is True:
             torch.save(module.state_dict(), trained_folder + '/network.pt')
-            if inputs.shape[-1] == 1:
-                marked_images.save(
-                    f'{trained_folder}/prediction_{epoch}_{b}.jpg')
-            else:
-                filename = f'{trained_folder}/prediction_{epoch}_{b}'
-                obd.bbox.utils.create_video(inputs_t, bboxes_t, predictions_t,
-                                    filename, test_set.classes,
-                                    box_color_map=box_color_map)
-                    
+            #if inputs.shape[-1] == 1:
+            #    marked_images.save(
+            #        f'{trained_folder}/prediction_{epoch}_{b}.jpg')
+            #else:
+            filename = f'{trained_folder}/prediction_{epoch}_{b}'
+            obd.bbox.utils.create_video(inputs_t, bboxes_t, predictions_t,
+                                filename, test_set.classes,
+                                box_color_map=box_color_map)
+                
         stats.save(trained_folder + '/')
 
     params_dict = {}

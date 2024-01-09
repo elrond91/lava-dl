@@ -56,7 +56,7 @@ class Network(YOLOBase):
                  weight_scale: dict = {
                      'weight_scale_1': 3,
                      'weight_scale_2': 3,
-                     'weight_scale_3': 1,
+                     'weight_scale_3': 3,
                      'weight_scale_4': 3,
                      'weight_scale_5': 3,
                      'weight_scale_6': 3,
@@ -100,11 +100,21 @@ class Network(YOLOBase):
         neuron_cuba_kwargs = {**cuba_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
         
         # everyring sigma delta
-        
+        # self.blocks = torch.nn.ModuleList([
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 128, 256, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_5'], **block_8_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 256, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_6'], **block_8_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_7'], **block_5_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
+        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
+        # ])
 
         self.blocks = torch.nn.ModuleList([
-            slayer.block.cuba.Conv(neuron_cuba_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
-            slayer.block.cuba.Conv(neuron_cuba_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs, 128, 256, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_5'], **block_8_kwargs),
@@ -113,6 +123,18 @@ class Network(YOLOBase):
             slayer.block.sigma_delta.Conv(neuron_kwargs, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
         ])
+        
+        # self.blocks = torch.nn.ModuleList([
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_01,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_02,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_03,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_04,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_05, 128, 256, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_5'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_06, 256, 256, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_6'], **block_8_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_07, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_7'], **block_5_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_08, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
+        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_09, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
+        # ])
 
         self.heads = torch.nn.ModuleList([
             slayer.synapse.Conv(512, self.num_output, 1, padding=0, stride=1, **synapse_kwargs),
@@ -153,14 +175,22 @@ class Network(YOLOBase):
         count = []
 
         x = input
+        idx = -1
+        self.export_mean_variance(x, idx)
+        
         for block in self.blocks:
             x = block(x)
+            idx += 1
+            self.export_mean_variance(x, idx)
+            
             count.append(slayer.utils.event_rate(x))
             if has_sparisty_loss:
                 sparsity_monitor.append(x)
 
         for head in self.heads:
             x = head(x)
+            idx += 1
+            self.export_mean_variance(x, idx)
             count.append(torch.mean(torch.abs((x) > 0).to(x.dtype)).item())
 
         head1 = self.yolo_raw(x)
@@ -172,6 +202,16 @@ class Network(YOLOBase):
 
         return (output,
                 torch.FloatTensor(count).reshape((1, -1)).to(input.device))
+        
+    def export_mean_variance(self, input, layer):
+        data = input.clone().detach()
+        with open("/home/lecampos/elrond91/lava-dl/mean_std.txt", "a") as myfile:
+            myfile.write( str(layer) + 
+                         " {:.5f}".format(data.mean().cpu().item()) + 
+                         " {:.5f}".format(data.std().cpu().item()) + "\n")
+            
+            #np.savetxt(myfile, np.asarray([layer, data.mean().cpu().item(), data.std().cpu().item()]), fmt='%1.5f', newline=" ", delimiter=',')
+            #myfile.write('\n')
 
     def export_hdf5_head(self, handle: h5py.Dataset) -> None:
         """Exports the hdf5 description of the head of the network. This is

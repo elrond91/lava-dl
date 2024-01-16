@@ -56,13 +56,13 @@ class Network(YOLOBase):
                  weight_scale: dict = {
                      'weight_scale_1': 3,
                      'weight_scale_2': 3,
-                     'weight_scale_3': 3,
-                     'weight_scale_4': 3,
-                     'weight_scale_5': 3,
-                     'weight_scale_6': 3,
-                     'weight_scale_7': 3,
+                     'weight_scale_3': 2,
+                     'weight_scale_4': 2,
+                     'weight_scale_5': 1,
+                     'weight_scale_6': 2,
+                     'weight_scale_7': 1,
                      'weight_scale_8': 3,
-                     'weight_scale_9': 3,
+                     'weight_scale_9': 4,
                      
                      }) -> None:
         super().__init__(num_classes=num_classes,
@@ -140,6 +140,10 @@ class Network(YOLOBase):
             slayer.synapse.Conv(512, self.num_output, 1, padding=0, stride=1, **synapse_kwargs),
             slayer.dendrite.Sigma(),
         ])
+        
+        # standard imagenet normalization of Events images
+        self.normalize_mean = torch.tensor([0.0357, 0.0306]).reshape([1, 2, 1, 1, 1])
+        self.normalize_std  = torch.tensor([0.2246, 0.1999]).reshape([1, 2, 1, 1, 1])
 
     def forward(
         self,
@@ -173,6 +177,12 @@ class Network(YOLOBase):
         """
         has_sparisty_loss = sparsity_monitor is not None
         count = []
+        
+        if self.normalize_mean.device != input.device:
+            self.normalize_mean = self.normalize_mean.to(input.device)
+            self.normalize_std = self.normalize_std.to(input.device)
+            
+        input = (input - self.normalize_mean) / self.normalize_std
 
         x = input
         idx = -1
@@ -204,11 +214,12 @@ class Network(YOLOBase):
                 torch.FloatTensor(count).reshape((1, -1)).to(input.device))
         
     def export_mean_variance(self, input, layer):
+        return
         data = input.clone().detach()
         with open("/home/lecampos/elrond91/lava-dl/mean_std.txt", "a") as myfile:
-            myfile.write( str(layer) + 
-                         " {:.5f}".format(data.mean().cpu().item()) + 
-                         " {:.5f}".format(data.std().cpu().item()) + "\n")
+            myfile.write( str(layer) + ' ' +
+                         str(data.mean((0,2,3,4)).cpu().tolist()) +  ' ' +
+                         str(data.std((0,2,3,4)).cpu().tolist()) + "\n")
             
             #np.savetxt(myfile, np.asarray([layer, data.mean().cpu().item(), data.std().cpu().item()]), fmt='%1.5f', newline=" ", delimiter=',')
             #myfile.write('\n')
@@ -309,7 +320,7 @@ class Network(YOLOBase):
         self.anchors.data = saved_model['anchors'].data.to(device)
         model_keys[f'anchors'] = True
 
-        for i in range(2):
+        for i in range(0):
             self.blocks[i].neuron.current_decay.data = saved_model[f'blocks.{i}.neuron.current_decay'].data
             self.blocks[i].neuron.voltage_decay.data = saved_model[f'blocks.{i}.neuron.voltage_decay'].data
             self.blocks[i].neuron.norm.running_mean.data = saved_model[f'blocks.{i}.neuron.norm.running_mean'].data
@@ -322,7 +333,7 @@ class Network(YOLOBase):
             model_keys[f'blocks.{i}.synapse.weight_g'] = True
             model_keys[f'blocks.{i}.synapse.weight_v'] = True
 
-        for i in range(2, len(self.blocks)):
+        for i in range(0, len(self.blocks)):
             self.blocks[i].neuron.bias.data = saved_model[f'blocks.{i}.neuron.bias'].data
             self.blocks[i].neuron.norm.running_mean.data = saved_model[f'blocks.{i}.neuron.norm.running_mean'].data
             self.blocks[i].neuron.delta.threshold.data = saved_model[f'blocks.{i}.neuron.delta.threshold'].data

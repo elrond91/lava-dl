@@ -811,6 +811,10 @@ def create_video_events(inputs: torch.tensor,
 
 def render_events_img(inputs: np.ndarray) -> Image:
     out = np.zeros((3, inputs.shape[1], inputs.shape[2]))
+    
+    inputs[0, inputs[0, :, :] >= 1] = 1
+    inputs[1, inputs[1, :, :] >= 1] = 1
+    
     out[0, :, :] = 255 * inputs[0, :, :]
     out[2, :, :] = 255 * inputs[1, :, :]
     return Img.fromarray(np.uint8(out).transpose([1, 2, 0]))

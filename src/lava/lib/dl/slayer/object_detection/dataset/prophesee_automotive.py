@@ -21,6 +21,8 @@ except ModuleNotFoundError:
     print(" Error! ")
 
 
+DEBUG = True
+
 class _PropheseeAutomotive(Dataset):
     def __init__(self,
                  root: str = '.',
@@ -29,7 +31,8 @@ class _PropheseeAutomotive(Dataset):
                  events_ratio: float = 0.01,
                  time_to_keep_bbox: float = 20,
                  randomize_seq: bool = False,
-                 train: bool = False) -> None:
+                 train: bool = False,
+                 reduce_classes: bool = False) -> None:
         super().__init__()
         self.cat_name = []
         self.delta_t = delta_t * 1000
@@ -37,11 +40,17 @@ class _PropheseeAutomotive(Dataset):
         self.seq_len = seq_len
         self.randomize_seq = randomize_seq
         self.events_ratio_threshold = events_ratio
+        
+        self.reduce_classes = reduce_classes
 
         with open(root + os.sep + 'label_map_dictionary.json') as file:
             data = json.load(file)
             self.idx_map = {int(key) : value for key, value in data.items()}
             [self.cat_name.append(value) for _, value in data.items()]
+        
+        if self.reduce_classes:
+            self.idx_map = {0: 'pedestrian', 1: 'car'}
+            self.cat_name = ['pedestrian', 'car']
 
         dataset = 'train' if train else 'val'
         self.dataset_path = root + os.sep + dataset
@@ -126,7 +135,12 @@ class _PropheseeAutomotive(Dataset):
                         + int(boxes['w'][idx]),
                         'ymax': int(boxes['y'][idx])
                         + int(boxes['h'][idx])}
-                    name = self.idx_map[boxes['class_id'][idx]]
+                    if self.reduce_classes:
+                        if not (boxes['class_id'][idx] == 0  or boxes['class_id'][idx] == 2):
+                            continue
+                        name = self.idx_map[boxes['class_id'][idx] if boxes['class_id'][idx] == 0 else 1 ]
+                    else:
+                        name = self.idx_map[boxes['class_id'][idx]]
                     
                     if bndbox['xmin'] < width and bndbox['ymin'] < height \
                         and bndbox['xmax'] > 0 and bndbox['ymax'] > 0:
@@ -139,10 +153,17 @@ class _PropheseeAutomotive(Dataset):
                         
                         if np.abs(bndbox['xmax'] - bndbox['xmin']) > 10 and np.abs(bndbox['ymax'] - bndbox['ymin']) > 10:
                             
-                            to_annotate = {'id': boxes['class_id'][idx],
-                                           'name': name,
-                                           'bndbox': bndbox,
-                                           'time': seq_time}
+                            if self.reduce_classes:
+                                if name in self.cat_name:
+                                    to_annotate = {'id': 0 if name == 'pedestrian' else 1,
+                                                'name': name,
+                                                'bndbox': bndbox,
+                                                'time': seq_time}
+                            else: 
+                                to_annotate = {'id': boxes['class_id'][idx],
+                                            'name': name,
+                                            'bndbox': bndbox,
+                                            'time': seq_time}
                             
                             if self.validate_bbox(frame, bndbox):
                                 objects.append(to_annotate)
@@ -185,6 +206,7 @@ class _PropheseeAutomotive(Dataset):
 
         images, annotations = self.get_seq(video, bbox_video)
 
+        # if not DEBUG:
         if len(images) != self.seq_len or len(annotations) != self.seq_len:
             video.reset()
             bbox_video.reset()
@@ -204,7 +226,8 @@ class PropheseeAutomotive(Dataset):
                  seq_len: int = 32,
                  events_ratio: float = 0.07,
                  randomize_seq: bool = False,
-                 augment_prob: float = 0.0) -> None:
+                 augment_prob: float = 0.0,
+                 reduce_classes: bool = False) -> None:
         super().__init__()
         self.img_transform = transforms.Compose([
             lambda x: resize_events_frame(x, size),
@@ -227,7 +250,8 @@ class PropheseeAutomotive(Dataset):
                                               train=train,
                                               events_ratio=events_ratio,
                                               seq_len=seq_len,
-                                              randomize_seq=randomize_seq)]
+                                              randomize_seq=randomize_seq,
+                                              reduce_classes=reduce_classes)]
 
         self.classes = self.datasets[0].cat_name
         self.idx_map = self.datasets[0].idx_map
@@ -239,18 +263,18 @@ class PropheseeAutomotive(Dataset):
         dataset_idx = index // len(self.datasets[0])
         index = index % len(self.datasets[0])
         images, annotations = [], []
+        # if not DEBUG:
         while (len(images) != self.seq_len) and \
                 (len(annotations) != self.seq_len):
             images, annotations = self.datasets[dataset_idx][index]
             index = np.random.randint(0, len(self.datasets[0]) - 1)
-
-        # flip left right
-        # if np.random.random() < self.augment_prob:
-        #     for idx in range(len(images)):
-        #         images[idx] = fliplr_events(images[idx])
-        #         annotations[idx] = bbutils.fliplr_bounding_boxes(
-        #             annotations[idx])
-                
+        # else:
+        #     images, annotations = self.datasets[dataset_idx][index]
+        
+        # if DEBUG:
+        #    if len(images) == 0:
+        #         return images, annotations
+        
         if np.random.random() < self.augment_prob:
             image = torch.cat([torch.unsqueeze(self.img_transform_fliplr(img), -1)
                             for img in images], dim=-1)

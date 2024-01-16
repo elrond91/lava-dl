@@ -16,6 +16,34 @@ from torch.utils.tensorboard import SummaryWriter
 from lava.lib.dl import slayer
 from lava.lib.dl.slayer import obd
 
+import math
+
+class CosineScheduler:
+        def __init__(self, max_update, base_lr=0.01, final_lr=0,
+                warmup_steps=0, warmup_begin_lr=0):
+            self.base_lr_orig = base_lr
+            self.max_update = max_update
+            self.final_lr = final_lr
+            self.warmup_steps = warmup_steps
+            self.warmup_begin_lr = warmup_begin_lr
+            self.max_steps = self.max_update - self.warmup_steps
+
+        def get_warmup_lr(self, epoch):
+            increase = (self.base_lr_orig - self.warmup_begin_lr) \
+                        * float(epoch) / float(self.warmup_steps)
+            return self.warmup_begin_lr + increase
+
+        def __call__(self, epoch):
+            if epoch < self.warmup_steps:
+                print('scheduler ',self.get_warmup_lr(epoch))
+                return self.get_warmup_lr(epoch)
+            if epoch <= self.max_update:
+                self.base_lr = self.final_lr + (
+                    self.base_lr_orig - self.final_lr) * (1 + math.cos(
+                    math.pi * (epoch - self.warmup_steps) / self.max_steps)) / 2
+            print('scheduler ', self.base_lr)
+            return self.base_lr
+
 
 Width = int
 Height = int
@@ -29,13 +57,15 @@ class PropheseeAutomotiveSmall(obd.dataset.PropheseeAutomotive):
                  seq_len: int = 32,
                  events_ratio: float = 0.07,
                  randomize_seq: bool = False,
-                 augment_prob: float = 0.0) -> None:
+                 augment_prob: float = 0.0,
+                 reduce_classes: bool = False) -> None:
         super().__init__(root=root, delta_t=delta_t, train=train, size=size, 
                          seq_len=seq_len, randomize_seq=randomize_seq, 
-                         events_ratio=events_ratio, augment_prob=augment_prob)
+                         events_ratio=events_ratio, augment_prob=augment_prob,
+                         reduce_classes=reduce_classes)
 
     def __len__(self):
-        return 6
+        return 50
     
 class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
     def __init__(self,
@@ -46,13 +76,15 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
                  seq_len: int = 32,
                  events_ratio: float = 0.07,
                  randomize_seq: bool = False,
-                 augment_prob: float = 0.0) -> None:
+                 augment_prob: float = 0.0,
+                 reduce_classes: bool = False) -> None:
         super().__init__(root=root, delta_t=delta_t, train=train, size=size, 
                          seq_len=seq_len, randomize_seq=randomize_seq, 
-                         events_ratio=events_ratio, augment_prob=augment_prob)
+                         events_ratio=events_ratio, augment_prob=augment_prob,
+                         reduce_classes=reduce_classes)
 
     def __len__(self):
-        return 1
+        return 10
 
 
 if __name__ == '__main__':
@@ -69,11 +101,11 @@ if __name__ == '__main__':
     # Optimizer
     parser.add_argument('-lr',  type=float, default=0.0001, help='initial learning rate')
     parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
-    parser.add_argument('-lrf', type=float, default=0.01,   help='learning rate reduction factor for lr scheduler')
+    parser.add_argument('-lrf', type=float, default=0.00001,   help='learning rate reduction factor for lr scheduler')
     # Network/SDNN
     parser.add_argument('-threshold',  type=float, default=0.1, help='neuron threshold')
     parser.add_argument('-tau_grad',   type=float, default=0.1, help='surrogate gradient time constant')
-    parser.add_argument('-scale_grad', type=float, default=0.2, help='surrogate gradient scale')
+    parser.add_argument('-scale_grad', type=float, default=0.5, help='surrogate gradient scale')
     parser.add_argument('-clip',       type=float, default=10, help='gradient clipping limit')
     # Network/SDNN
     parser.add_argument('-cuba_threshold',  type=float, default=1.25, help='neuron threshold')
@@ -86,11 +118,12 @@ if __name__ == '__main__':
     # Target generation
     parser.add_argument('-tgt_iou_thr', type=float, default=0.5, help='ignore iou threshold in target generation')
     # YOLO loss
-    parser.add_argument('-lambda_coord',    type=float, default=8.0, help='YOLO coordinate loss lambda')
-    parser.add_argument('-lambda_noobj',    type=float, default=8.0, help='YOLO no-object loss lambda')
-    parser.add_argument('-lambda_obj',      type=float, default=8.0, help='YOLO object loss lambda')
+    parser.add_argument('-lambda_coord',    type=float, default=2.0, help='YOLO coordinate loss lambda')
+    parser.add_argument('-lambda_noobj',    type=float, default=3.0, help='YOLO no-object loss lambda')
+    parser.add_argument('-lambda_obj',      type=float, default=3.0, help='YOLO object loss lambda')
     parser.add_argument('-lambda_cls',      type=float, default=8.0, help='YOLO class loss lambda')
-    parser.add_argument('-lambda_iou',      type=float, default=8.0, help='YOLO iou loss lambda')
+    parser.add_argument('-lambda_iou',      type=float, default=4.0, help='YOLO iou loss lambda')
+    
     parser.add_argument('-alpha_iou',       type=float, default=0.8, help='YOLO loss object target iou mixture factor')
     parser.add_argument('-label_smoothing', type=float, default=0.1, help='YOLO class cross entropy label smoothing')
     parser.add_argument('-track_iter',      type=int,  default=1000, help='YOLO loss tracking interval')
@@ -99,11 +132,11 @@ if __name__ == '__main__':
     parser.add_argument('-seed', type=int, default=None, help='random seed of the experiment')
     # Training
     parser.add_argument('-epoch',  type=int, default=200, help='number of epochs to run')
-    parser.add_argument('-warmup', type=int, default=10,  help='number of epochs to warmup')
+    parser.add_argument('-warmup', type=int, default=0,  help='number of epochs to warmup')
     # dataset
     parser.add_argument('-dataset',     type=str,   default='PropheseeAutomotive', help='dataset to use [BDD100K, PropheseeAutomotive]')
     parser.add_argument('-subset',      default=True, action='store_true', help='use PropheseeAutomotive12 subset')
-    parser.add_argument('-seq_len',  type=int, default=32, help='number of time continous frames')
+    parser.add_argument('-seq_len',  type=int, default=64, help='number of time continous frames')
     parser.add_argument('-delta_t',  type=int, default=1, help='time window for events')
     parser.add_argument('-event_ratio',  type=float, default=0.04, help='filtering bbox')
     parser.add_argument('-path',        type=str,   default='/home/lecampos/data/prophesee', help='dataset path')
@@ -137,7 +170,8 @@ if __name__ == '__main__':
     print('Using GPUs {}'.format(args.gpu))
     device = torch.device('cuda:{}'.format(args.gpu[0]))
 
-    classes_output = {'BDD100K': 11, 'PropheseeAutomotive': 7}
+    # classes_output = {'BDD100K': 11, 'PropheseeAutomotive': 7}
+    classes_output = {'BDD100K': 11, 'PropheseeAutomotive': 2}
 
     print('Creating Network')
     if args.model == 'tiny_yolov3_str':
@@ -201,15 +235,26 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(net.parameters(),
                                  lr=args.lr,
                                  weight_decay=args.wd)
+    
 
-    # Define learning rate scheduler
-    def lf(x):
-        return (min(x / args.warmup, 1)
-                * ((1 + np.cos(x * np.pi / args.epoch)) / 2)
-                * (1 - args.lrf)
-                + args.lrf)
+    # optimizer = torch.optim.Adagrad(net.parameters(),
+    #                             lr=args.lr,
+    #                             weight_decay=args.wd)
+    
 
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+    
+        
+    scheduler = CosineScheduler(args.epoch, warmup_steps=args.warmup, base_lr=args.lr, final_lr=args.lrf)
+    
+
+    # # Define learning rate scheduler
+    # def lf(x):
+    #     return (min(x / args.warmup, 1)
+    #             * ((1 + np.cos(x * np.pi / args.epoch)) / 2)
+    #             * (1 - args.lrf)
+    #             + args.lrf)
+
+    # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=scheduler, verbose=True)
     yolo_target = obd.YOLOtarget(anchors=net.anchors,
                                  scales=net.scale,
                                  num_classes=net.num_classes,
@@ -242,13 +287,15 @@ if __name__ == '__main__':
                                                 randomize_seq=True,
                                                 events_ratio = args.event_ratio,
                                                 delta_t=args.delta_t,
-                                                seq_len=args.seq_len)
+                                                seq_len=args.seq_len,
+                                                reduce_classes=True)
             
             test_set = PropheseeAutomotiveSmallTrain(root=args.path, train=False,
                                                     randomize_seq=True,
                                                     events_ratio = args.event_ratio,
                                                     delta_t=args.delta_t,
-                                                    seq_len=args.seq_len)
+                                                    seq_len=args.seq_len,
+                                                reduce_classes=True)
             print('Using PropheseeAutomotiveSmall Dataset')
         else:      
             train_set = obd.dataset.PropheseeAutomotive(root=args.path, train=True, 
@@ -256,12 +303,14 @@ if __name__ == '__main__':
                                                         randomize_seq=True,
                                                         events_ratio = args.event_ratio,
                                                         delta_t=args.delta_t,
-                                                        seq_len=args.seq_len)
+                                                        seq_len=args.seq_len,
+                                                reduce_classes=True)
             test_set = obd.dataset.PropheseeAutomotive(root=args.path, train=False,
                                                     randomize_seq=True,
                                                     events_ratio = args.event_ratio,
                                                     delta_t=args.delta_t,
-                                                    seq_len=args.seq_len)
+                                                    seq_len=args.seq_len,
+                                                reduce_classes=True)
             
         train_loader = DataLoader(train_set,
                                 batch_size=args.b,
@@ -305,7 +354,15 @@ if __name__ == '__main__':
         
         with open("/home/lecampos/elrond91/lava-dl/mean_std.txt", "a") as myfile:
             myfile.write( "---- Epoch: " + str(epoch) + "\n")
-        
+            
+        if scheduler.__module__ == torch.optim.lr_scheduler.__name__:
+                # Using PyTorch In-Built scheduler
+                scheduler.step()
+        else:
+            # Using custom defined scheduler
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = scheduler(epoch)
+                    
         t_st = datetime.now()
         ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
 
@@ -334,7 +391,7 @@ if __name__ == '__main__':
             net.validate_gradients()
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             optimizer.step()
-            scheduler.step()
+            # scheduler.step()
 
             if i < 10:
                 net.grad_flow(path=trained_folder + '/')
@@ -390,7 +447,8 @@ if __name__ == '__main__':
                 plt.savefig(f'{trained_folder}/yolo_loss_tracker.png')
                 plt.close()
             stats.print(epoch, i, samples_sec, header=header_list)
-        
+
+
         t_st = datetime.now()
         ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
         for i, (inputs, targets, bboxes) in enumerate(test_loader):

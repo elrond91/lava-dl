@@ -51,10 +51,22 @@ def events2frame(events: np.array,
     valid = (events['x'] >= 0) & (events['x'] < size[1]) & \
             (events['y'] >= 0) & (events['y'] < size[0])
     events = events[valid]
-    frame[events['y'][events['p'] == 1],
-            events['x'][events['p'] == 1], 0] = 1
-    frame[events['y'][events['p'] == 0],
-            events['x'][events['p'] == 0], 1] = 1
+    
+    #index = [events['y'][events['p'] == 1], events['x'][events['p'] == 1]]
+    #nodes, inv, counts = np.unique(np.asarray(index).T, return_inverse=True, return_counts=True)
+    
+    for event in events:
+        if event['p'] == 1:
+            frame[event['y'], event['x'], 0] += 1
+        else:
+            frame[event['y'], event['x'], 1] += 1
+    
+
+    # frame[events['y'][events['p'] == 1],
+    #         events['x'][events['p'] == 1], 0] = 1
+    
+    # frame[events['y'][events['p'] == 0],
+    #         events['x'][events['p'] == 0], 1] = 1
     
     return frame
 

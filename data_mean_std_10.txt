@@ -431,3 +431,119 @@ computed 214/336
 channel_mean tensor([0.3223, 0.2787]) channel_std tensor([1.2764, 1.1329])
 computed 215/336
 channel_mean tensor([0.3228, 0.2792]) channel_std tensor([1.2786, 1.1347])
+computed 216/336
+channel_mean tensor([0.3235, 0.2799]) channel_std tensor([1.2797, 1.1360])
+computed 217/336
+channel_mean tensor([0.3246, 0.2811]) channel_std tensor([1.2827, 1.1394])
+computed 218/336
+channel_mean tensor([0.3268, 0.2845]) channel_std tensor([1.2870, 1.1451])
+computed 219/336
+channel_mean tensor([0.3278, 0.2852]) channel_std tensor([1.2881, 1.1452])
+computed 220/336
+channel_mean tensor([0.3269, 0.2843]) channel_std tensor([1.2879, 1.1446])
+computed 221/336
+channel_mean tensor([0.3265, 0.2841]) channel_std tensor([1.2876, 1.1447])
+computed 222/336
+channel_mean tensor([0.3265, 0.2841]) channel_std tensor([1.2878, 1.1450])
+computed 223/336
+channel_mean tensor([0.3256, 0.2833]) channel_std tensor([1.2873, 1.1439])
+computed 224/336
+channel_mean tensor([0.3274, 0.2846]) channel_std tensor([1.2923, 1.1474])
+computed 225/336
+channel_mean tensor([0.3268, 0.2841]) channel_std tensor([1.2909, 1.1465])
+computed 226/336
+channel_mean tensor([0.3267, 0.2840]) channel_std tensor([1.2906, 1.1463])
+computed 227/336
+channel_mean tensor([0.3288, 0.2860]) channel_std tensor([1.2948, 1.1503])
+computed 228/336
+channel_mean tensor([0.3287, 0.2859]) channel_std tensor([1.2942, 1.1497])
+computed 229/336
+channel_mean tensor([0.3285, 0.2858]) channel_std tensor([1.2939, 1.1498])
+computed 230/336
+channel_mean tensor([0.3284, 0.2856]) channel_std tensor([1.2926, 1.1485])
+computed 231/336
+channel_mean tensor([0.3288, 0.2861]) channel_std tensor([1.2921, 1.1486])
+computed 232/336
+channel_mean tensor([0.3282, 0.2856]) channel_std tensor([1.2909, 1.1479])
+computed 233/336
+channel_mean tensor([0.3278, 0.2852]) channel_std tensor([1.2894, 1.1467])
+computed 234/336
+channel_mean tensor([0.3302, 0.2872]) channel_std tensor([1.2955, 1.1518])
+computed 235/336
+channel_mean tensor([0.3310, 0.2876]) channel_std tensor([1.2989, 1.1541])
+computed 236/336
+channel_mean tensor([0.3312, 0.2878]) channel_std tensor([1.2994, 1.1544])
+computed 237/336
+channel_mean tensor([0.3320, 0.2887]) channel_std tensor([1.3022, 1.1578])
+computed 238/336
+channel_mean tensor([0.3315, 0.2883]) channel_std tensor([1.3004, 1.1563])
+computed 239/336
+channel_mean tensor([0.3308, 0.2876]) channel_std tensor([1.2979, 1.1542])
+computed 240/336
+channel_mean tensor([0.3294, 0.2864]) channel_std tensor([1.2939, 1.1506])
+computed 241/336
+channel_mean tensor([0.3286, 0.2858]) channel_std tensor([1.2917, 1.1491])
+computed 242/336
+channel_mean tensor([0.3284, 0.2856]) channel_std tensor([1.2931, 1.1500])
+computed 243/336
+channel_mean tensor([0.3284, 0.2856]) channel_std tensor([1.2933, 1.1504])
+computed 244/336
+channel_mean tensor([0.3285, 0.2855]) channel_std tensor([1.2929, 1.1496])
+computed 245/336
+channel_mean tensor([0.3282, 0.2853]) channel_std tensor([1.2923, 1.1493])
+computed 246/336
+channel_mean tensor([0.3274, 0.2847]) channel_std tensor([1.2902, 1.1478])
+computed 247/336
+channel_mean tensor([0.3279, 0.2852]) channel_std tensor([1.2909, 1.1484])
+computed 248/336
+channel_mean tensor([0.3296, 0.2865]) channel_std tensor([1.2950, 1.1515])
+computed 249/336
+channel_mean tensor([0.3288, 0.2857]) channel_std tensor([1.2925, 1.1491])
+computed 250/336
+channel_mean tensor([0.3279, 0.2848]) channel_std tensor([1.2898, 1.1462])
+computed 251/336
+channel_mean tensor([0.3291, 0.2860]) channel_std tensor([1.2928, 1.1493])
+computed 252/336
+channel_mean tensor([0.3282, 0.2852]) channel_std tensor([1.2908, 1.1468])
+computed 253/336
+channel_mean tensor([0.3294, 0.2864]) channel_std tensor([1.2934, 1.1494])
+computed 254/336
+channel_mean tensor([0.3306, 0.2873]) channel_std tensor([1.2975, 1.1523])
+computed 255/336
+channel_mean tensor([0.3299, 0.2867]) channel_std tensor([1.2950, 1.1504])
+computed 256/336
+channel_mean tensor([0.3294, 0.2863]) channel_std tensor([1.2939, 1.1492])
+computed 257/336
+channel_mean tensor([0.3288, 0.2857]) channel_std tensor([1.2916, 1.1475])
+computed 258/336
+channel_mean tensor([0.3283, 0.2853]) channel_std tensor([1.2902, 1.1462])
+computed 259/336
+channel_mean tensor([0.3300, 0.2866]) channel_std tensor([1.2943, 1.1494])
+computed 260/336
+channel_mean tensor([0.3298, 0.2865]) channel_std tensor([1.2944, 1.1499])
+computed 261/336
+channel_mean tensor([0.3300, 0.2866]) channel_std tensor([1.2948, 1.1499])
+computed 262/336
+channel_mean tensor([0.3294, 0.2861]) channel_std tensor([1.2929, 1.1484])
+computed 263/336
+channel_mean tensor([0.3290, 0.2856]) channel_std tensor([1.2924, 1.1474])
+computed 264/336
+channel_mean tensor([0.3296, 0.2861]) channel_std tensor([1.2934, 1.1481])
+computed 265/336
+channel_mean tensor([0.3294, 0.2859]) channel_std tensor([1.2925, 1.1474])
+computed 266/336
+channel_mean tensor([0.3293, 0.2858]) channel_std tensor([1.2920, 1.1472])
+computed 267/336
+channel_mean tensor([0.3290, 0.2856]) channel_std tensor([1.2910, 1.1465])
+computed 268/336
+channel_mean tensor([0.3282, 0.2850]) channel_std tensor([1.2888, 1.1449])
+computed 269/336
+channel_mean tensor([0.3279, 0.2847]) channel_std tensor([1.2876, 1.1437])
+computed 270/336
+channel_mean tensor([0.3270, 0.2839]) channel_std tensor([1.2852, 1.1416])
+computed 271/336
+channel_mean tensor([0.3270, 0.2839]) channel_std tensor([1.2850, 1.1416])
+computed 272/336
+channel_mean tensor([0.3271, 0.2840]) channel_std tensor([1.2870, 1.1428])
+computed 273/336
+channel_mean tensor([0.3259, 0.2830]) channel_std tensor([1.2833, 1.1395])

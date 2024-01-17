@@ -102,6 +102,8 @@ class _PropheseeAutomotive(Dataset):
             except (AssertionError, IndexError):
                 pass
             
+            if len(boxes) == 0:
+                continue
             seq_time = video.current_time
             boxes = reformat_boxes(boxes)
             

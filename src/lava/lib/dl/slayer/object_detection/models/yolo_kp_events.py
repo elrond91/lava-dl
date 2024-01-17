@@ -142,8 +142,13 @@ class Network(YOLOBase):
         ])
         
         # standard imagenet normalization of Events images
-        self.normalize_mean = torch.tensor([0.0357, 0.0306]).reshape([1, 2, 1, 1, 1])
-        self.normalize_std  = torch.tensor([0.2246, 0.1999]).reshape([1, 2, 1, 1, 1])
+        # 1ms
+        # self.normalize_mean = torch.tensor([0.0357, 0.0306]).reshape([1, 2, 1, 1, 1])
+        # self.normalize_std  = torch.tensor([0.2246, 0.1999]).reshape([1, 2, 1, 1, 1])
+        
+        
+        self.normalize_mean = torch.tensor([0.1684, 0.1455]).reshape([1, 2, 1, 1, 1])
+        self.normalize_std  = torch.tensor([0.7605, 0.6605]).reshape([1, 2, 1, 1, 1])
 
     def forward(
         self,

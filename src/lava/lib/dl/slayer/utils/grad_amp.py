@@ -20,3 +20,12 @@ def _GradAmplifier(torch.autograd.Function):
 
 def grad_amplifier(input, gain=1):
     return _GradAmplifier.apply(input, gain)
+
+
+class GradAmplifier(torch.nn.Network):
+    def __init__(self, gain: float = 1) -> None:
+        super().__init__()
+        self.gain = gain
+
+    def forward(self, input: torch.tensor) -> torch.tensor:
+        return _GradAmplifier(input, self.gain)

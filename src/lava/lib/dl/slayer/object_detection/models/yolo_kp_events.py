@@ -140,6 +140,18 @@ class Network(YOLOBase):
             slayer.synapse.Conv(512, self.num_output, 1, padding=0, stride=1, **synapse_kwargs),
             slayer.dendrite.Sigma(),
         ])
+
+        self.grad_amp = torch.nn.ModuleList([
+            slayer.utils.GradAmplifier(gain=0.1),
+            slayer.utils.GradAmplifier(gain=0.1),
+            slayer.utils.GradAmplifier(gain=0.1),
+            slayer.utils.GradAmplifier(gain=0.1),
+            slayer.utils.GradAmplifier(gain=0.1),
+            slayer.utils.GradAmplifier(gain=1),
+            slayer.utils.GradAmplifier(gain=1),
+            slayer.utils.GradAmplifier(gain=1),
+            slayer.utils.GradAmplifier(gain=1),
+        ])
         
         # standard imagenet normalization of Events images
         # 1ms
@@ -193,8 +205,8 @@ class Network(YOLOBase):
         idx = -1
         self.export_mean_variance(x, idx)
         
-        for block in self.blocks:
-            x = block(x)
+        for block, grad_amp in zip(self.blocks, self.grad_amp):
+            x = grad_amp(block(x))
             idx += 1
             self.export_mean_variance(x, idx)
             

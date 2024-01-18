@@ -54,15 +54,15 @@ class Network(YOLOBase):
                      'tau_grad': 0.1,
                      'scale_grad': 15},
                  weight_scale: dict = {
-                     'weight_scale_1': 3,
-                     'weight_scale_2': 3,
-                     'weight_scale_3': 2,
-                     'weight_scale_4': 2,
-                     'weight_scale_5': 1,
-                     'weight_scale_6': 2,
-                     'weight_scale_7': 1,
-                     'weight_scale_8': 3,
-                     'weight_scale_9': 4,
+                     'weight_scale_1': 0.65,
+                     'weight_scale_2': 0.7,
+                     'weight_scale_3': 0.7,
+                     'weight_scale_4': 0.7,
+                     'weight_scale_5': 0.9,
+                     'weight_scale_6': 0.9,
+                     'weight_scale_7': 0.9,
+                     'weight_scale_8': 0.9,
+                     'weight_scale_9': 0.9,
                      
                      }) -> None:
         super().__init__(num_classes=num_classes,
@@ -97,6 +97,7 @@ class Network(YOLOBase):
         block_5_kwargs = dict(weight_norm=True, delay_shift=False, pre_hook_fx=quantize_5bit)
         block_8_kwargs = dict(weight_norm=True, delay_shift=False, pre_hook_fx=quantize_8bit)
         neuron_kwargs = {**sdnn_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
+
         neuron_cuba_kwargs = {**cuba_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
         
         # everyring sigma delta
@@ -111,6 +112,8 @@ class Network(YOLOBase):
         #     slayer.block.sigma_delta.Conv(neuron_kwargs, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
         #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
         # ])
+        
+        print(weight_scale)
 
         self.blocks = torch.nn.ModuleList([
             slayer.block.sigma_delta.Conv(neuron_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
@@ -147,8 +150,8 @@ class Network(YOLOBase):
         # self.normalize_std  = torch.tensor([0.2246, 0.1999]).reshape([1, 2, 1, 1, 1])
         
         
-        self.normalize_mean = torch.tensor([0.1684, 0.1455]).reshape([1, 2, 1, 1, 1])
-        self.normalize_std  = torch.tensor([0.7605, 0.6605]).reshape([1, 2, 1, 1, 1])
+        self.normalize_mean = torch.tensor([0.3239, 0.2801]).reshape([1, 2, 1, 1, 1])
+        self.normalize_std  = torch.tensor([1.2723, 1.1246]).reshape([1, 2, 1, 1, 1])
 
     def forward(
         self,

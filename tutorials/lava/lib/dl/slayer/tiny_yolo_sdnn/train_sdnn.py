@@ -99,13 +99,13 @@ if __name__ == '__main__':
     parser.add_argument('-sp_lam',   type=float, default=0.01, help='sparsity loss mixture ratio')
     parser.add_argument('-sp_rate',  type=float, default=0.01, help='minimum rate for sparsity penalization')
     # Optimizer
-    parser.add_argument('-lr',  type=float, default=0.0001, help='initial learning rate')
+    parser.add_argument('-lr',  type=float, default=0.001, help='initial learning rate')
     parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
-    parser.add_argument('-lrf', type=float, default=0.00001,   help='learning rate reduction factor for lr scheduler')
+    parser.add_argument('-lrf', type=float, default=0.0001,   help='learning rate reduction factor for lr scheduler')
     # Network/SDNN
     parser.add_argument('-threshold',  type=float, default=0.1, help='neuron threshold')
     parser.add_argument('-tau_grad',   type=float, default=0.1, help='surrogate gradient time constant')
-    parser.add_argument('-scale_grad', type=float, default=0.5, help='surrogate gradient scale')
+    parser.add_argument('-scale_grad', type=float, default=1.0, help='surrogate gradient scale')
     parser.add_argument('-clip',       type=float, default=10, help='gradient clipping limit')
     # Network/SDNN
     parser.add_argument('-cuba_threshold',  type=float, default=1.25, help='neuron threshold')
@@ -137,12 +137,12 @@ if __name__ == '__main__':
     parser.add_argument('-dataset',     type=str,   default='PropheseeAutomotive', help='dataset to use [BDD100K, PropheseeAutomotive]')
     parser.add_argument('-subset',      default=True, action='store_true', help='use PropheseeAutomotive12 subset')
     parser.add_argument('-seq_len',  type=int, default=32, help='number of time continous frames')
-    parser.add_argument('-delta_t',  type=int, default=5, help='time window for events')
+    parser.add_argument('-delta_t',  type=int, default=10, help='time window for events')
     parser.add_argument('-event_ratio',  type=float, default=0.04, help='filtering bbox')
     parser.add_argument('-path',        type=str,   default='/home/lecampos/data/prophesee', help='dataset path')
     parser.add_argument('-output_dir',  type=str,   default='.', help='directory in which to put log folders')
     parser.add_argument('-num_workers', type=int,   default=25, help='number of dataloader workers')
-    parser.add_argument('-aug_prob',    type=float, default=0.2, help='training augmentation probability')
+    parser.add_argument('-aug_prob',    type=float, default=0.0, help='training augmentation probability')
     parser.add_argument('-clamp_max',   type=float, default=5.0, help='exponential clamp in height/width calculation')
 
     args = parser.parse_args()
@@ -284,14 +284,14 @@ if __name__ == '__main__':
         if args.subset:
             train_set = PropheseeAutomotiveSmall(root=args.path, train=True, 
                                                 augment_prob=args.aug_prob, 
-                                                randomize_seq=True,
+                                                randomize_seq=False,
                                                 events_ratio = args.event_ratio,
                                                 delta_t=args.delta_t,
                                                 seq_len=args.seq_len,
                                                 reduce_classes=True)
             
             test_set = PropheseeAutomotiveSmallTrain(root=args.path, train=False,
-                                                    randomize_seq=True,
+                                                    randomize_seq=False,
                                                     events_ratio = args.event_ratio,
                                                     delta_t=args.delta_t,
                                                     seq_len=args.seq_len,
@@ -314,13 +314,13 @@ if __name__ == '__main__':
             
         train_loader = DataLoader(train_set,
                                 batch_size=args.b,
-                                shuffle=True,
+                                shuffle=False,
                                 collate_fn=yolo_target.collate_fn,
                                 num_workers=args.num_workers,
                                 pin_memory=True)
         test_loader = DataLoader(test_set,
                                 batch_size=args.b,
-                                shuffle=True,
+                                shuffle=False,
                                 collate_fn=yolo_target.collate_fn,
                                 num_workers=args.num_workers,
                                 pin_memory=True)        

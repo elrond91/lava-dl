@@ -47,22 +47,16 @@ class Network(YOLOBase):
                  tau_grad: float = 0.1,
                  scale_grad: float = 0.1,
                  clamp_max: float = 5.0,
-                 cuba_params: dict = {
-                     'threshold': 0.1,
-                     'current_decay': 1,
-                     'voltage_decay': 0.1,
-                     'tau_grad': 0.1,
-                     'scale_grad': 15},
                  weight_scale: dict = {
-                     'weight_scale_1': 0.65,
-                     'weight_scale_2': 0.7,
-                     'weight_scale_3': 0.7,
-                     'weight_scale_4': 0.7,
-                     'weight_scale_5': 0.9,
-                     'weight_scale_6': 0.9,
-                     'weight_scale_7': 0.9,
-                     'weight_scale_8': 0.9,
-                     'weight_scale_9': 0.9,
+                     'weight_scale_1': 1,
+                     'weight_scale_2': 1,
+                     'weight_scale_3': 1,
+                     'weight_scale_4': 3,
+                     'weight_scale_5': 3,
+                     'weight_scale_6': 3,
+                     'weight_scale_7': 3,
+                     'weight_scale_8': 3,
+                     'weight_scale_9': 3,
                      
                      }) -> None:
         super().__init__(num_classes=num_classes,
@@ -97,22 +91,6 @@ class Network(YOLOBase):
         block_5_kwargs = dict(weight_norm=True, delay_shift=False, pre_hook_fx=quantize_5bit)
         block_8_kwargs = dict(weight_norm=True, delay_shift=False, pre_hook_fx=quantize_8bit)
         neuron_kwargs = {**sdnn_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
-
-        neuron_cuba_kwargs = {**cuba_params, 'norm': slayer.neuron.norm.MeanOnlyBatchNorm}
-        
-        # everyring sigma delta
-        # self.blocks = torch.nn.ModuleList([
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 128, 256, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_5'], **block_8_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 256, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_6'], **block_8_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_7'], **block_5_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
-        #     slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
-        # ])
-        
         print(weight_scale)
 
         self.blocks = torch.nn.ModuleList([
@@ -127,17 +105,6 @@ class Network(YOLOBase):
             slayer.block.sigma_delta.Conv(neuron_kwargs, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
         ])
         
-        # self.blocks = torch.nn.ModuleList([
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_01,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_02,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_03,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_04,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_05, 128, 256, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_5'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_06, 256, 256, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_6'], **block_8_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_07, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_7'], **block_5_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_08, 512, 256, 1, padding=0, stride=1, weight_scale=weight_scale['weight_scale_8'], **block_5_kwargs),
-        #     slayer.block.cuba.Conv(neuron_cuba_kwargs_09, 256, 512, 3, padding=1, stride=1, weight_scale=weight_scale['weight_scale_9'], **block_5_kwargs),
-        # ])
 
         self.heads = torch.nn.ModuleList([
             slayer.synapse.Conv(512, self.num_output, 1, padding=0, stride=1, **synapse_kwargs),
@@ -145,15 +112,15 @@ class Network(YOLOBase):
         ])
 
         self.grad_amp = torch.nn.ModuleList([
-            slayer.utils.GradAmplifier(gain=0.1),
-            slayer.utils.GradAmplifier(gain=0.1),
-            slayer.utils.GradAmplifier(gain=0.1),
-            slayer.utils.GradAmplifier(gain=0.1),
-            slayer.utils.GradAmplifier(gain=0.1),
-            slayer.utils.GradAmplifier(gain=1),
-            slayer.utils.GradAmplifier(gain=1),
-            slayer.utils.GradAmplifier(gain=1),
-            slayer.utils.GradAmplifier(gain=1),
+            slayer.utils.GradAmplifier(gain=0.2),
+            slayer.utils.GradAmplifier(gain=0.2),
+            slayer.utils.GradAmplifier(gain=0.2),
+            slayer.utils.GradAmplifier(gain=0.2),
+            slayer.utils.GradAmplifier(gain=0.3),
+            slayer.utils.GradAmplifier(gain=0.3),
+            slayer.utils.GradAmplifier(gain=1.),
+            slayer.utils.GradAmplifier(gain=1.),
+            slayer.utils.GradAmplifier(gain=1.),
         ])
         
         # standard imagenet normalization of Events images
@@ -162,8 +129,13 @@ class Network(YOLOBase):
         # self.normalize_std  = torch.tensor([0.2246, 0.1999]).reshape([1, 2, 1, 1, 1])
         
         
-        self.normalize_mean = torch.tensor([0.3239, 0.2801]).reshape([1, 2, 1, 1, 1])
-        self.normalize_std  = torch.tensor([1.2723, 1.1246]).reshape([1, 2, 1, 1, 1])
+        # 5ms
+        self.normalize_mean = torch.tensor([0.1684, 0.1455]).reshape([1, 2, 1, 1, 1])
+        self.normalize_std  = torch.tensor([0.7605, 0.6605]).reshape([1, 2, 1, 1, 1])
+        
+        # 10ms
+        # self.normalize_mean = torch.tensor([0.3239, 0.2801]).reshape([1, 2, 1, 1, 1])
+        # self.normalize_std  = torch.tensor([1.2723, 1.1246]).reshape([1, 2, 1, 1, 1])
 
     def forward(
         self,
@@ -206,12 +178,12 @@ class Network(YOLOBase):
 
         x = input
         idx = -1
-        self.export_mean_variance(x, idx)
+        #self.export_mean_variance(x, idx)
         
         for block, grad_amp in zip(self.blocks, self.grad_amp):
             x = grad_amp(block(x))
             idx += 1
-            self.export_mean_variance(x, idx)
+            #self.export_mean_variance(x, idx)
             
             count.append(slayer.utils.event_rate(x))
             if has_sparisty_loss:
@@ -220,7 +192,7 @@ class Network(YOLOBase):
         for head in self.heads:
             x = head(x)
             idx += 1
-            self.export_mean_variance(x, idx)
+            #self.export_mean_variance(x, idx)
             count.append(torch.mean(torch.abs((x) > 0).to(x.dtype)).item())
 
         head1 = self.yolo_raw(x)
@@ -340,20 +312,7 @@ class Network(YOLOBase):
         self.anchors.data = saved_model['anchors'].data.to(device)
         model_keys[f'anchors'] = True
 
-        for i in range(0):
-            self.blocks[i].neuron.current_decay.data = saved_model[f'blocks.{i}.neuron.current_decay'].data
-            self.blocks[i].neuron.voltage_decay.data = saved_model[f'blocks.{i}.neuron.voltage_decay'].data
-            self.blocks[i].neuron.norm.running_mean.data = saved_model[f'blocks.{i}.neuron.norm.running_mean'].data
-            self.blocks[i].synapse.weight_g.data = saved_model[f'blocks.{i}.synapse.weight_g'].data
-            self.blocks[i].synapse.weight_v.data = saved_model[f'blocks.{i}.synapse.weight_v'].data
-
-            model_keys[f'blocks.{i}.neuron.current_decay'] = True
-            model_keys[f'blocks.{i}.neuron.voltage_decay'] = True
-            model_keys[f'blocks.{i}.neuron.norm.running_mean'] = True
-            model_keys[f'blocks.{i}.synapse.weight_g'] = True
-            model_keys[f'blocks.{i}.synapse.weight_v'] = True
-
-        for i in range(0, len(self.blocks)):
+        for i in range(len(self.blocks)):
             self.blocks[i].neuron.bias.data = saved_model[f'blocks.{i}.neuron.bias'].data
             self.blocks[i].neuron.norm.running_mean.data = saved_model[f'blocks.{i}.neuron.norm.running_mean'].data
             self.blocks[i].neuron.delta.threshold.data = saved_model[f'blocks.{i}.neuron.delta.threshold'].data

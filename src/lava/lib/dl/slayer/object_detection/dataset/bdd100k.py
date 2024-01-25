@@ -63,7 +63,9 @@ class _BDD(Dataset):
             raise FileNotFoundError(msg)
         json_files = [label_json for label_json in os.listdir(
             self.label_path) if label_json.endswith('.json')]
-
+        
+        json_files.sort()
+        
         categories = set()
         for json_file in json_files:
             with open(self.label_path + os.sep + json_file) as file:

@@ -300,7 +300,7 @@ class Delta(torch.nn.Module):
             _error_state = self.error_state
         else:
             _error_state = torch.zeros_like(input[..., 0])
-        print('delta.py ', self.scale_grad)
+        #print('delta.py ', self.scale_grad)
         output, residual_state, error_state = _DeltaUnit.apply(
             input, self.threshold,
             _pre_state,

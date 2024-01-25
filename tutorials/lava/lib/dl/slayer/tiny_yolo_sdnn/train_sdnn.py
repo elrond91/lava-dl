@@ -65,7 +65,7 @@ class PropheseeAutomotiveSmall(obd.dataset.PropheseeAutomotive):
                          reduce_classes=reduce_classes)
 
     def __len__(self):
-        return 50
+        return 5
     
 class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
     def __init__(self,
@@ -84,35 +84,34 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
                          reduce_classes=reduce_classes)
 
     def __len__(self):
-        return 10
+        return 1
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-gpu', type=int, default=[3], help='which gpu(s) to use', nargs='+')
+    parser = argparse.ArgumentParser() #5 #6
+    parser.add_argument('-gpu', type=int, default=[6], help='which gpu(s) to use', nargs='+')
     parser.add_argument('-b',   type=int, default=4,  help='batch size for dataloader')
     parser.add_argument('-verbose', default=False, action='store_true', help='lots of debug printouts')
     # Model
     parser.add_argument('-model', type=str, default='yolo_kp_events', help='network model')
     # Sparsity
     parser.add_argument('-sparsity', action='store_true', default=False, help='enable sparsity loss')
-    parser.add_argument('-sp_lam',   type=float, default=0.01, help='sparsity loss mixture ratio')
+    parser.add_argument('-sp_lam',   type=float, default=0.05, help='sparsity loss mixture ratio')
     parser.add_argument('-sp_rate',  type=float, default=0.01, help='minimum rate for sparsity penalization')
     # Optimizer
-    parser.add_argument('-lr',  type=float, default=0.001, help='initial learning rate')
+    parser.add_argument('-lr',  type=float, default=0.004, help='initial learning rate')
     parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
-    parser.add_argument('-lrf', type=float, default=0.0001,   help='learning rate reduction factor for lr scheduler')
+    parser.add_argument('-lrf', type=float, default=0.004,   help='learning rate reduction factor for lr scheduler')
+    
+    # parser.add_argument('-lr',  type=float, default=0.004, help='initial learning rate')
+    # parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
+    # parser.add_argument('-lrf', type=float, default=1.0,   help='learning rate reduction factor for lr scheduler')
+ 
     # Network/SDNN
     parser.add_argument('-threshold',  type=float, default=0.1, help='neuron threshold')
     parser.add_argument('-tau_grad',   type=float, default=0.1, help='surrogate gradient time constant')
     parser.add_argument('-scale_grad', type=float, default=1.0, help='surrogate gradient scale')
     parser.add_argument('-clip',       type=float, default=10, help='gradient clipping limit')
-    # Network/SDNN
-    parser.add_argument('-cuba_threshold',  type=float, default=1.25, help='neuron threshold')
-    parser.add_argument('-cuba_current_decay',   type=float, default=0.25, help='surrogate gradient time constant')
-    parser.add_argument('-cuba_voltage_decay', type=float, default=0.03, help='surrogate gradient scale')
-    parser.add_argument('-cuba_tau_grad',       type=float, default=0.03, help='gradient clipping limit')
-    parser.add_argument('-cuba_scale_grad',       type=float, default=3, help='gradient clipping limit')
     # Pretrained model
     parser.add_argument('-load', type=str, default='', help='pretrained model')
     # Target generation
@@ -123,21 +122,20 @@ if __name__ == '__main__':
     parser.add_argument('-lambda_obj',      type=float, default=3.0, help='YOLO object loss lambda')
     parser.add_argument('-lambda_cls',      type=float, default=8.0, help='YOLO class loss lambda')
     parser.add_argument('-lambda_iou',      type=float, default=4.0, help='YOLO iou loss lambda')
-    
     parser.add_argument('-alpha_iou',       type=float, default=0.8, help='YOLO loss object target iou mixture factor')
     parser.add_argument('-label_smoothing', type=float, default=0.1, help='YOLO class cross entropy label smoothing')
     parser.add_argument('-track_iter',      type=int,  default=1000, help='YOLO loss tracking interval')
     # Experiment
-    parser.add_argument('-exp',  type=str, default='sigma',   help='experiment differentiater string')
+    parser.add_argument('-exp',  type=str, default='sigma_d5_miniset_custom_lr',   help='experiment differentiater string')
     parser.add_argument('-seed', type=int, default=None, help='random seed of the experiment')
     # Training
-    parser.add_argument('-epoch',  type=int, default=200, help='number of epochs to run')
-    parser.add_argument('-warmup', type=int, default=0,  help='number of epochs to warmup')
+    parser.add_argument('-epoch',  type=int, default=1000, help='number of epochs to run')
+    parser.add_argument('-warmup', type=int, default=10,  help='number of epochs to warmup')
     # dataset
     parser.add_argument('-dataset',     type=str,   default='PropheseeAutomotive', help='dataset to use [BDD100K, PropheseeAutomotive]')
     parser.add_argument('-subset',      default=True, action='store_true', help='use PropheseeAutomotive12 subset')
     parser.add_argument('-seq_len',  type=int, default=32, help='number of time continous frames')
-    parser.add_argument('-delta_t',  type=int, default=10, help='time window for events')
+    parser.add_argument('-delta_t',  type=int, default=5, help='time window for events')
     parser.add_argument('-event_ratio',  type=float, default=0.04, help='filtering bbox')
     parser.add_argument('-path',        type=str,   default='/home/lecampos/data/prophesee', help='dataset path')
     parser.add_argument('-output_dir',  type=str,   default='.', help='directory in which to put log folders')
@@ -190,12 +188,7 @@ if __name__ == '__main__':
                       tau_grad=args.tau_grad,
                       scale_grad=args.scale_grad,
                       num_classes=classes_output[args.dataset],
-                      clamp_max=args.clamp_max,
-                      cuba_params={'threshold': args.cuba_threshold,
-                                    'current_decay' : args.cuba_current_decay,
-                                    'voltage_decay' : args.cuba_voltage_decay,
-                                    'tau_grad'      : args.cuba_tau_grad,   
-                                    'scale_grad'    : args.cuba_scale_grad}).to(device)
+                      clamp_max=args.clamp_max).to(device)
         module = net
     else:
         net = torch.nn.DataParallel(Network(threshold=args.threshold,
@@ -254,7 +247,7 @@ if __name__ == '__main__':
     #             * (1 - args.lrf)
     #             + args.lrf)
 
-    # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=scheduler, verbose=True)
+    # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     yolo_target = obd.YOLOtarget(anchors=net.anchors,
                                  scales=net.scale,
                                  num_classes=net.num_classes,
@@ -284,14 +277,14 @@ if __name__ == '__main__':
         if args.subset:
             train_set = PropheseeAutomotiveSmall(root=args.path, train=True, 
                                                 augment_prob=args.aug_prob, 
-                                                randomize_seq=False,
+                                                randomize_seq=True,
                                                 events_ratio = args.event_ratio,
                                                 delta_t=args.delta_t,
                                                 seq_len=args.seq_len,
                                                 reduce_classes=True)
             
             test_set = PropheseeAutomotiveSmallTrain(root=args.path, train=False,
-                                                    randomize_seq=False,
+                                                    randomize_seq=True,
                                                     events_ratio = args.event_ratio,
                                                     delta_t=args.delta_t,
                                                     seq_len=args.seq_len,
@@ -314,13 +307,13 @@ if __name__ == '__main__':
             
         train_loader = DataLoader(train_set,
                                 batch_size=args.b,
-                                shuffle=False,
+                                shuffle=True,
                                 collate_fn=yolo_target.collate_fn,
                                 num_workers=args.num_workers,
                                 pin_memory=True)
         test_loader = DataLoader(test_set,
                                 batch_size=args.b,
-                                shuffle=False,
+                                shuffle=True,
                                 collate_fn=yolo_target.collate_fn,
                                 num_workers=args.num_workers,
                                 pin_memory=True)        
@@ -354,14 +347,6 @@ if __name__ == '__main__':
         
         with open("/home/lecampos/elrond91/lava-dl/mean_std.txt", "a") as myfile:
             myfile.write( "---- Epoch: " + str(epoch) + "\n")
-            
-        if scheduler.__module__ == torch.optim.lr_scheduler.__name__:
-                # Using PyTorch In-Built scheduler
-                scheduler.step()
-        else:
-            # Using custom defined scheduler
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = scheduler(epoch)
                     
         t_st = datetime.now()
         ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
@@ -448,7 +433,14 @@ if __name__ == '__main__':
                 plt.close()
             stats.print(epoch, i, samples_sec, header=header_list)
 
-
+        if scheduler.__module__ == torch.optim.lr_scheduler.__name__:
+                # Using PyTorch In-Built scheduler
+                scheduler.step()
+        else:
+            # Using custom defined scheduler
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = scheduler(epoch)
+                
         t_st = datetime.now()
         ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
         for i, (inputs, targets, bboxes) in enumerate(test_loader):

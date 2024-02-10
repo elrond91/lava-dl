@@ -94,7 +94,7 @@ class Network(YOLOBase):
         print(weight_scale)
 
         self.blocks = torch.nn.ModuleList([
-            slayer.block.sigma_delta.Conv(neuron_kwargs,   2,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
+            slayer.block.sigma_delta.Conv(neuron_kwargs,   1,  16, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_1'], **block_8_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs,  16,  32, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_2'], **block_8_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs,  32,  64, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_3'], **block_8_kwargs),
             slayer.block.sigma_delta.Conv(neuron_kwargs,  64, 128, 3, padding=1, stride=2, weight_scale=weight_scale['weight_scale_4'], **block_8_kwargs),
@@ -170,13 +170,17 @@ class Network(YOLOBase):
         has_sparisty_loss = sparsity_monitor is not None
         count = []
         
-        if self.normalize_mean.device != input.device:
-            self.normalize_mean = self.normalize_mean.to(input.device)
-            self.normalize_std = self.normalize_std.to(input.device)
+        # if self.normalize_mean.device != input.device:
+        #     self.normalize_mean = self.normalize_mean.to(input.device)
+        #     self.normalize_std = self.normalize_std.to(input.device)
             
-        input = (input - self.normalize_mean) / self.normalize_std
-
-        x = input
+        # input = (input - self.normalize_mean) / self.normalize_std
+        B, C, H, W, T = input.shape
+        if C != 1:
+            x = (input[:, 0, :, :, :] - input[:, 1, :, :, :]).reshape([B, 1, H, W, T])
+        else:
+            x = input
+        
         idx = -1
         #self.export_mean_variance(x, idx)
         

@@ -89,7 +89,7 @@ class PropheseeAutomotiveSmallTrain(obd.dataset.PropheseeAutomotive):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser() #5 #6
-    parser.add_argument('-gpu', type=int, default=[6], help='which gpu(s) to use', nargs='+')
+    parser.add_argument('-gpu', type=int, default=[0], help='which gpu(s) to use', nargs='+')
     parser.add_argument('-b',   type=int, default=4,  help='batch size for dataloader')
     parser.add_argument('-verbose', default=False, action='store_true', help='lots of debug printouts')
     # Model
@@ -99,9 +99,9 @@ if __name__ == '__main__':
     parser.add_argument('-sp_lam',   type=float, default=0.05, help='sparsity loss mixture ratio')
     parser.add_argument('-sp_rate',  type=float, default=0.01, help='minimum rate for sparsity penalization')
     # Optimizer
-    parser.add_argument('-lr',  type=float, default=0.004, help='initial learning rate')
+    parser.add_argument('-lr',  type=float, default=0.001, help='initial learning rate')
     parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
-    parser.add_argument('-lrf', type=float, default=0.004,   help='learning rate reduction factor for lr scheduler')
+    parser.add_argument('-lrf', type=float, default=1.0,   help='learning rate reduction factor for lr scheduler')
     
     # parser.add_argument('-lr',  type=float, default=0.004, help='initial learning rate')
     # parser.add_argument('-wd',  type=float, default=1e-5,   help='optimizer weight decay')
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('-label_smoothing', type=float, default=0.1, help='YOLO class cross entropy label smoothing')
     parser.add_argument('-track_iter',      type=int,  default=1000, help='YOLO loss tracking interval')
     # Experiment
-    parser.add_argument('-exp',  type=str, default='sigma_d5_miniset_custom_lr',   help='experiment differentiater string')
+    parser.add_argument('-exp',  type=str, default='1channel',   help='experiment differentiater string')
     parser.add_argument('-seed', type=int, default=None, help='random seed of the experiment')
     # Training
     parser.add_argument('-epoch',  type=int, default=1000, help='number of epochs to run')
@@ -218,9 +218,9 @@ if __name__ == '__main__':
     elif args.model == 'yolo_kp':
         module.init_model((448, 448, 3))
     elif args.model == 'tiny_yolov3_str_events':
-        module.init_model((448, 448, 2))
+        module.init_model((448, 448, 1))
     elif args.model == 'yolo_kp_events':
-        module.init_model((448, 448, 2))
+        module.init_model((448, 448, 1))
     
 
     # Define optimizer module.
@@ -237,17 +237,17 @@ if __name__ == '__main__':
 
     
         
-    scheduler = CosineScheduler(args.epoch, warmup_steps=args.warmup, base_lr=args.lr, final_lr=args.lrf)
+    # scheduler = CosineScheduler(args.epoch, warmup_steps=args.warmup, base_lr=args.lr, final_lr=args.lrf)
     
 
-    # # Define learning rate scheduler
-    # def lf(x):
-    #     return (min(x / args.warmup, 1)
-    #             * ((1 + np.cos(x * np.pi / args.epoch)) / 2)
-    #             * (1 - args.lrf)
-    #             + args.lrf)
+    # Define learning rate scheduler
+    def lf(x):
+        return (min(x / args.warmup, 1)
+                * ((1 + np.cos(x * np.pi / args.epoch)) / 2)
+                * (1 - args.lrf)
+                + args.lrf)
 
-    # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     yolo_target = obd.YOLOtarget(anchors=net.anchors,
                                  scales=net.scale,
                                  num_classes=net.num_classes,

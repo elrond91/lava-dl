@@ -20,6 +20,9 @@ from pytorch_quantization.tensor_quant import QuantDescriptor
 from pytorch_quantization import calib
 from tqdm import tqdm
 
+#sys.path.append("/home/lecampos/lava-nc/lava-dl/src/")
+#sys.path.append("/home/lecampos/lava-nc/lava-dl/src/")
+
 from lava.lib.dl.slayer import obd
 from lava.lib.dl import slayer
 

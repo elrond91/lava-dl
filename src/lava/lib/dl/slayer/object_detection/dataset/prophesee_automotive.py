@@ -18,7 +18,7 @@ try:
     from src.io.box_filtering import filter_boxes
     from src.io.box_loading import reformat_boxes
 except ModuleNotFoundError:
-    print(" Error! ")
+    print(" Error! PSEELoader not found")
 
 
 DEBUG = True

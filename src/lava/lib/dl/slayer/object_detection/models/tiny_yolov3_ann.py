@@ -138,9 +138,18 @@ class Network(YOLOBase):
      
         if not self.training:
             outputs = [item[..., None] for item in outputs]
-            outputs = torch.concat([self.yolo(p, a) for (p, a)
-                                            in zip(outputs,  self.anchors)],
-                                           dim=1)
+            outputs_yolo = []
+            if self.yolo_type != 'single-head':
+                outputs_yolo.append(self.yolo(outputs[0], self.anchors[0], self._quantize))
+                outputs_yolo.append(self.yolo(outputs[1], self.anchors[1], self._quantize))
+            else:
+                outputs_yolo.append(self.yolo(outputs[0], self.anchors[0], self._quantize))
+            #for (p, a) in zip(outputs,  self.anchors):
+            #for idx in range(len(self.anchors)):
+            outputs = torch.concat(outputs_yolo, dim=1)
+            
+        if self._quantize:
+            return outputs
         return outputs, []
     
     

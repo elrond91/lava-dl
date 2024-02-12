@@ -259,4 +259,7 @@ class Network(YOLOBase):
             outputs = torch.concat([self.yolo(p, a) for (p, a)
                                             in zip(outputs,  self.anchors)],
                                            dim=1)
+        
+        if self._quantize:
+            return outputs
         return outputs, []

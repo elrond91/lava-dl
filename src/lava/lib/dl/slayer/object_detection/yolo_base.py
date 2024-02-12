@@ -15,7 +15,8 @@ from .boundingbox.utils import tensor_from_annotation
 
 def _yolo(x: torch.tensor,
           anchors: torch.tensor,
-          clamp_max: float = 5.0) -> torch.tensor:
+          clamp_max: float = 5.0,
+          quantize: bool = False) -> torch.tensor:
     # converts raw predictions to bounding box predictions.
     # x shape:
     # batch_size, anchors size, feature_map dims, feature_map dims, [tx, ty, tw, th, p_score, classes 11], sqe_lenght time 
@@ -62,16 +63,17 @@ def _yolo(x: torch.tensor,
     x = torch.concat([x_center, y_center, width, height,
                       confidence, classes], dim=-2)
 
-    if torch.isnan(x).any() or torch.isinf(x).any():
-        print(f'{torch.isnan(x_center).any()=}')
-        print(f'{torch.isinf(x_center).any()=}')
-        print(f'{torch.isnan(y_center).any()=}')
-        print(f'{torch.isinf(y_center).any()=}')
-        print(f'{torch.isnan(width).any()=}')
-        print(f'{torch.isinf(width).any()=}')
-        print(f'{torch.isnan(height).any()=}')
-        print(f'{torch.isinf(height).any()=}')
-        raise RuntimeError('Ecountered NaN and Inf!')
+    if not quantize:
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            print(f'{torch.isnan(x_center).any()=}')
+            print(f'{torch.isinf(x_center).any()=}')
+            print(f'{torch.isnan(y_center).any()=}')
+            print(f'{torch.isinf(y_center).any()=}')
+            print(f'{torch.isnan(width).any()=}')
+            print(f'{torch.isinf(width).any()=}')
+            print(f'{torch.isnan(height).any()=}')
+            print(f'{torch.isinf(height).any()=}')
+            raise RuntimeError('Ecountered NaN and Inf!')
 
     return x  # batch, anchor, height, width, predictions, time
 
@@ -409,7 +411,7 @@ class YOLOBase(torch.nn.Module):
         self.clamp_max = clamp_max
         self.scale = None
 
-    def yolo(self, x: torch.tensor, anchors: torch.tensor) -> torch.tensor:
+    def yolo(self, x: torch.tensor, anchors: torch.tensor, quantize: bool = False) -> torch.tensor:
         """Evaluates YOLO bounding box prediction from raw network output.
 
         Parameters
@@ -425,7 +427,7 @@ class YOLOBase(torch.nn.Module):
             Output bounding boxes.
         """
         N, _, _, _, P, T = x.shape
-        return _yolo(x, anchors, self.clamp_max).reshape([N, -1, P, T])
+        return _yolo(x, anchors, self.clamp_max, quantize).reshape([N, -1, P, T])
 
     def yolo_raw(self, x: torch.tensor) -> torch.tensor:
         """Transforms raw YOLO prediction to eventual output order i.e.

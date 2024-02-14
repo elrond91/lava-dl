@@ -7,6 +7,7 @@ import time
 import torch.backends.cudnn as cudnn
 import numpy as np
 import threading
+from datetime import datetime
 
 import pytorch_quantization
 from pytorch_quantization import nn as quant_nn
@@ -29,36 +30,49 @@ print("torch_tensorrt ",torch_tensorrt.__version__)
 print("pytorch_quantization ", pytorch_quantization.__version__)
 
 
-def measuse_power():
+def yolo(x: torch.tensor, anchors: torch.tensor, quantize: bool = False, clamp_max: float = 5.0) -> torch.tensor:
+    N, _, _, _, P, T = x.shape
+    return obd.yolo_base._yolo(x, anchors, clamp_max, quantize).reshape([N, -1, P, T])
+
+def measuse_power(debug=False):
     result = subprocess.Popen(['sudo', '-S'] + './tutorials/lava/lib/dl/slayer/tiny_yolo_sdnn/jtop_stats.py'.split(),
                             stdout=subprocess.PIPE)
     
     out, _ = result.communicate()
     info = out.decode("utf-8").replace("\'", "\"")
+    if debug:
+        print(info)
+        #print(float(info.split("load")[1].split("}")[0].split(":")[1]))
     VDD_CPU_GPU_CV = int(info.split("VDD_CPU_GPU_CV")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
     VDD_SOC = int(info.split("VDD_SOC")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
     tot = int(info.split("tot")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
+    GPU_PERCENT = float(info.split("load")[1].split("}")[0].split(":")[1])
     # add % GPU
-    return VDD_CPU_GPU_CV, VDD_SOC, tot
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S'), VDD_CPU_GPU_CV, VDD_SOC, tot, GPU_PERCENT
 
 class JTOPStats:
     def __init__(self):
         self._stats = []
+        self._stats_file = []
         self._stop = False
         self._thread = threading.Thread(target=self.adquire)
         self._thread.start()
 
     def adquire(self):
         while not self._stop:
-            self._stats.append(measuse_power())
-            time.sleep(10)
+            self._stats_file.append(measuse_power())
+            self._stats.append(self._stats_file[-1][1:])
+            time.sleep(1)
 
     def stop(self):
         self._stop = True
         self._thread.join()
     
-    def get_stats(self):
-        print(np.asarray(self._stats))
+    def get_stats(self, file = None):
+        if file is not None:
+            with open(file, 'w') as f:
+                for line in self._stats_file:
+                    f.write(f"{line}\n")
         return np.mean(np.asarray(self._stats), axis=0)
 
 def compute_amax(model, **kwargs):
@@ -142,61 +156,80 @@ def calibrate_model(model, model_name, data_loader, num_calib_batch, calibrator,
                     F"{model_name}-{method}-{num_calib_batch*data_loader.batch_size}.pth")
                 torch.save(model.state_dict(), calib_output)
 
-def test(model, dataloader):
-    print("Start testing ...")
+def benchmark(model, dataloader, anchors, clamp_max, quantize = False, save_exp = None):
+    print("Start benchmark ...")
+    anchors = torch.tensor(anchors).cuda()
+    time_cum = 0
+    times_computed = 0
     stats = slayer.utils.LearningStats(accuracy_str='AP@0.5')
     ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
     jstats = JTOPStats()
-    for idx in range(5):
-        print(idx)
+    for idx in range(33):
         for i, (inputs_t, targets_t, bboxes_t) in enumerate(dataloader):
             model.eval()
             predictions_t = []
-            
             for idx in range(inputs_t.shape[4]):
                 with torch.no_grad():
                     inputs = inputs_t[...,idx]
+                    
+                    start_time = time.time()
                     inputs = inputs.cuda()
-                    
-                    predictions = model(inputs)
-                    
+                    if quantize:
+                        predictions = model(inputs)
+                        to_cpu = [item.cpu().data for item in predictions]
+                    else:
+                        predictions, _ = model(inputs)
+                        to_cpu = [item.cpu().data for item in predictions]
+                    time_cum += time.time() - start_time
+                    times_computed += 1
+                        
+                    predictions = [item[..., None] for item in predictions]
+                    predictions = torch.concat([yolo(p, a, quantize=quantize, clamp_max=clamp_max) for (p, a) in zip(predictions,  anchors)], dim=1)
                     predictions = obd.bbox.utils.nms(predictions[..., 0])
                     predictions_t.append(predictions)
                     ap_stats.update(predictions, bboxes_t[idx])
-
                     stats.testing.num_samples += inputs.shape[0]
                     stats.testing.correct_samples = ap_stats[:] * \
                         stats.testing.num_samples
     jstats.stop()
-    result_stats = jstats.get_stats()
-    print("VDD_CPU_GPU_CV: {:.5f} VDD_SOC: {:.5f} tot: {:.5f} ".format(result_stats[0], result_stats[1], result_stats[2]))          
+    if save_exp is None:
+        result_stats = jstats.get_stats()
+    else:
+        result_stats = jstats.get_stats(save_exp[0] + save_exp[1] + '_gpu_stats_time.txt')
+        with open(save_exp[0] + save_exp[1] + '_stats.txt', 'w') as f:
+            f.write("VDD_CPU_GPU_CV: {:.5f}milliwatt; VDD_SOC: {:.5f}milliwatt; tot: {:.5f}milliwatt perc: {:.5f}\n".format(result_stats[0], result_stats[1], result_stats[2], result_stats[3]))
+            f.write('Average data time: %.5f ms \n'%( (time_cum / times_computed) * 1000))
+            f.write("Accuracy: {:.5f}".format(stats.testing.accuracy))
+            
+    print("VDD_CPU_GPU_CV: {:.5f}milliwatt; VDD_SOC: {:.5f}milliwatt; tot: {:.5f}milliwatt perc: {:.5f}".format(result_stats[0], result_stats[1], result_stats[2], result_stats[3]))          
+    print('Average data time: %.5f ms'%( (time_cum / times_computed) * 1000))
     return stats.testing.loss, stats.testing.accuracy
 
 # Helper function to benchmark the model
-def benchmark(model, dataloader, batch_size, dtype='fp32'):
-    print("Start timing ...")
-    time_cum = 0
-    times_computed = 0
-    with torch.no_grad():
-        jstats = JTOPStats()
-        for idx in range(5):
-            print(idx)
-            for data, _, _ in dataloader:
-                for idx in range(data.shape[4]):
-                    inputs = data[...,idx]
-                    if inputs.shape[0] != batch_size:
-                        continue
-                    start_time = time.time()
-                    inputs = inputs.cuda()
-                    output = model(inputs)
-                    output = output.cpu().data
-                    time_cum += time.time() - start_time
-                    times_computed += 1
-        jstats.stop()
-        result_stats = jstats.get_stats()
-        print("Output shape:", output.shape)
-        print('Average data time: %.5f ms'%( (time_cum / times_computed) * 1000))
-        print("VDD_CPU_GPU_CV: {:.5f} VDD_SOC: {:.5f} tot: {:.5f} ".format(result_stats[0], result_stats[1], result_stats[2]))
+# def benchmark(model, dataloader, batch_size, dtype='fp32'):
+#     print("Start timing ...")
+#     time_cum = 0
+#     times_computed = 0
+#     with torch.no_grad():
+#         jstats = JTOPStats()
+#         for idx in range(5):
+#             print(idx)
+#             for data, _, _ in dataloader:
+#                 for idx in range(data.shape[4]):
+#                     inputs = data[...,idx]
+#                     if inputs.shape[0] != batch_size:
+#                         continue
+#                     start_time = time.time()
+#                     inputs = inputs.cuda()
+#                     output = model(inputs)
+#                     output = output.cpu().data
+#                     time_cum += time.time() - start_time
+#                     times_computed += 1
+#         jstats.stop()
+#         result_stats = jstats.get_stats()
+#         print("Output shape:", output.shape)
+#         print('Average data time: %.5f ms'%( (time_cum / times_computed) * 1000))
+#         print("VDD_CPU_GPU_CV: {:.5f} VDD_SOC: {:.5f} tot: {:.5f} ".format(result_stats[0], result_stats[1], result_stats[2]))
 
 
 def benchmark_model(config, folder_model, batch_size = 1):
@@ -261,12 +294,11 @@ def benchmark_model(config, folder_model, batch_size = 1):
     print('Loading weights')
     module.load_state_dict(torch.load(folder_model + '/network.pt', 
                                       map_location= 'cuda:{}'.format(config["gpu"])))
-    #loss, accuracy = test(net, test_loader)
-    #print("Float " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
- 
+    clamp_max = module.clamp_max
+    save_experiment = [folder_model, '/' + config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_float"]
     cudnn.benchmark = True
-    #print("Float " + config["model"] + "_" + config['model_type'] +" time")
-    #benchmark(net, test_loader, batch_size)
+    loss, accuracy = benchmark(net, test_loader, yolo_anchors, clamp_max, save_exp=save_experiment)
+    print("Float " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
 
     qat_model = Network(num_classes=11, 
                       yolo_type=config['model_type'],
@@ -278,45 +310,50 @@ def benchmark_model(config, folder_model, batch_size = 1):
                                       map_location= 'cuda:{}'.format(config["gpu"])))
     
     #calibrate if model not found
-    #if not os.path.exists(folder_model + "/" + config["model"] + "_" + config['model_type']+ "_qat.jit.pt"):
-    #Calibrate the model using max calibration technique.
-    with torch.no_grad():
-        calibrate_model(
-            model=qat_model,
-            model_name=config["model"] + '_' + config['model_type'],
-            data_loader=train_loader,
-            num_calib_batch=int(0.001*len(train_loader)),
-            calibrator="max",
-            hist_percentile=[99.9, 99.99, 99.999, 99.9999],
-            out_dir=folder_model + '/')
-        
-    quant_nn.TensorQuantizer.use_fb_fake_quant = True
-    
-    with torch.no_grad():
-        data_in = iter(test_loader)
-        images_raw, _, _ = next(data_in)
-        images = images_raw[...,0]
-        jit_model = torch.jit.trace(qat_model, images.to("cuda"))
-        torch.jit.save(jit_model, folder_model + "/" + config["model"] + "_" + config['model_type']+ "_qat.jit.pt")
+    if not os.path.exists(folder_model + "/" + config["model"] + "_" + config['model_type']+ "_qat.jit.pt"):
+        #Calibrate the model using max calibration technique.
+        with torch.no_grad():
+            calibrate_model(
+                model=qat_model,
+                model_name=config["model"] + '_' + config['model_type'],
+                data_loader=train_loader,
+                num_calib_batch=int(len(train_loader)),
+                calibrator="max",
+                hist_percentile=[99.9, 99.99, 99.999, 99.9999],
+                out_dir=folder_model + '/')
+            
+        quant_nn.TensorQuantizer.use_fb_fake_quant = True
 
+        with torch.no_grad():
+            data_in = iter(test_loader)
+            images_raw, _, _ = next(data_in)
+            images = images_raw[...,0]
+            jit_model = torch.jit.trace(qat_model, images.to("cuda")).eval()
+            torch.jit.save(jit_model, folder_model + "/" + config["model"] + "_" + config['model_type']+ "_qat.jit.pt")
+    else:
+       jit_model =  torch.jit.load(folder_model + "/" + config["model"] + "_" + config['model_type']+ "_qat.jit.pt").eval()
+    
     qat_model = torch.jit.load(folder_model + "/" + config["model"] + "_" + config['model_type']+ "_qat.jit.pt").eval()
+    
+    data_in = iter(test_loader)
+    images_raw, _, _ = next(data_in)
+    images = images_raw[...,0]
     B, C, W, H = images.shape
+    
     compile_spec = {"inputs": [torch_tensorrt.Input([B, C, W, H])],
                     "enabled_precisions": torch.int8,
                     "truncate_long_and_double": True,
                     }
     trt_mod = torch_tensorrt.compile(qat_model, **compile_spec)
 
-    loss, accuracy = test(jit_model, test_loader)
-    print("jit_model loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
+    save_experiment = [folder_model, '/' +config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_jit"]
+    loss, accuracy = benchmark(jit_model, test_loader, yolo_anchors, clamp_max, quantize = True, save_exp=save_experiment)
+    print("jit_model " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
 
-    loss, accuracy = test(trt_mod, test_loader)
-    print("trt_mod loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
+    save_experiment = [folder_model, '/' +config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_trt"]
+    loss, accuracy = benchmark(trt_mod, test_loader, yolo_anchors, clamp_max, quantize= True, save_exp=save_experiment)
+    print("trt_mod " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
     
-    print("jit_model time")
-    benchmark(jit_model, test_loader, batch_size)
-    print("trt_mod time")
-    benchmark(trt_mod, test_loader, batch_size)
     
 
 if __name__ == '__main__':
@@ -328,8 +365,15 @@ if __name__ == '__main__':
         # Target generation
         'tgt_iou_thr': 0.5,
     }
-    base_path = '/home/lecampos/elrond91/lava-dl/tutorials/lava/lib/dl/slayer/tiny_yolo_sdnn/models/'
+    base_path = '/home/lecampos/models/'
     benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head')
+    
+    # 1) single-head [batch = 1; batch = [2, 4, 8, 16, 32, 64]] -> tensorRT + quant
+    # 2) tiny_yolov3 [batch = 1; batch = [2, 4, 8, 16, 32, 64]] -> tensorRT + quant
+    # https://developer.nvidia.com/embedded/jetson-benchmarks
+    # 3) tiny_yolov3_str [batch = 1; batch = [2, 4, 8, 16, 32, 64]] -> tensorRT + quant
+    # ------
+    # 4) yolov3 [batch = 1; batch = [2, 4, 8, 16, 32, 64]] -> tensorRT + quant
    
 
     

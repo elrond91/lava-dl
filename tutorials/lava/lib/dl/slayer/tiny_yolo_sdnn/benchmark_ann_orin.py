@@ -35,20 +35,23 @@ def yolo(x: torch.tensor, anchors: torch.tensor, quantize: bool = False, clamp_m
     return obd.yolo_base._yolo(x, anchors, clamp_max, quantize).reshape([N, -1, P, T])
 
 def measuse_power(debug=False):
-    result = subprocess.Popen(['sudo', '-S'] + './tutorials/lava/lib/dl/slayer/tiny_yolo_sdnn/jtop_stats.py'.split(),
-                            stdout=subprocess.PIPE)
-    
-    out, _ = result.communicate()
-    info = out.decode("utf-8").replace("\'", "\"")
-    if debug:
-        print(info)
-        #print(float(info.split("load")[1].split("}")[0].split(":")[1]))
-    VDD_CPU_GPU_CV = int(info.split("VDD_CPU_GPU_CV")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
-    VDD_SOC = int(info.split("VDD_SOC")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
-    tot = int(info.split("tot")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
-    GPU_PERCENT = float(info.split("load")[1].split("}")[0].split(":")[1])
-    # add % GPU
-    return datetime.now().strftime('%Y-%m-%d %H:%M:%S'), VDD_CPU_GPU_CV, VDD_SOC, tot, GPU_PERCENT
+    try:
+        result = subprocess.Popen(['sudo', '-S'] + './tutorials/lava/lib/dl/slayer/tiny_yolo_sdnn/jtop_stats.py'.split(),
+                                stdout=subprocess.PIPE)
+        
+        out, _ = result.communicate()
+        info = out.decode("utf-8").replace("\'", "\"")
+        if debug:
+            print(info)
+            #print(float(info.split("load")[1].split("}")[0].split(":")[1]))
+        VDD_CPU_GPU_CV = int(info.split("VDD_CPU_GPU_CV")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
+        VDD_SOC = int(info.split("VDD_SOC")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
+        tot = int(info.split("tot")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
+        GPU_PERCENT = float(info.split("load")[1].split("}")[0].split(":")[1])
+        # add % GPU
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S'), VDD_CPU_GPU_CV, VDD_SOC, tot, GPU_PERCENT
+    except:
+        return None
 
 class JTOPStats:
     def __init__(self):
@@ -60,8 +63,10 @@ class JTOPStats:
 
     def adquire(self):
         while not self._stop:
-            self._stats_file.append(measuse_power())
-            self._stats.append(self._stats_file[-1][1:])
+            results = measuse_power()
+            if results is not None:
+                self._stats_file.append(results)
+                self._stats.append(self._stats_file[-1][1:])
             time.sleep(1)
 
     def stop(self):
@@ -165,6 +170,7 @@ def benchmark(model, dataloader, anchors, clamp_max, quantize = False, save_exp 
     ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
     jstats = JTOPStats()
     for idx in range(33):
+        print('iteration... ', idx)
         for i, (inputs_t, targets_t, bboxes_t) in enumerate(dataloader):
             model.eval()
             predictions_t = []
@@ -236,6 +242,8 @@ def benchmark_model(config, folder_model, batch_size = 1):
     print('Using GPUs {}'.format(config["gpu"]))
     device = torch.device('cuda:{}'.format(config["gpu"]))
     
+    os.makedirs('profiling', exist_ok=True)
+    
     print('Creating Network')
     if config["model"] == 'yolov3_ann':
         Network = obd.models.yolov3_ann.Network
@@ -295,7 +303,7 @@ def benchmark_model(config, folder_model, batch_size = 1):
     module.load_state_dict(torch.load(folder_model + '/network.pt', 
                                       map_location= 'cuda:{}'.format(config["gpu"])))
     clamp_max = module.clamp_max
-    save_experiment = [folder_model, '/' + config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_float"]
+    save_experiment = [folder_model, '/profiling/' + config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_float"]
     cudnn.benchmark = True
     loss, accuracy = benchmark(net, test_loader, yolo_anchors, clamp_max, save_exp=save_experiment)
     print("Float " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
@@ -346,11 +354,11 @@ def benchmark_model(config, folder_model, batch_size = 1):
                     }
     trt_mod = torch_tensorrt.compile(qat_model, **compile_spec)
 
-    save_experiment = [folder_model, '/' +config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_jit"]
+    save_experiment = [folder_model, '/profiling/' +config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_jit"]
     loss, accuracy = benchmark(jit_model, test_loader, yolo_anchors, clamp_max, quantize = True, save_exp=save_experiment)
     print("jit_model " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
 
-    save_experiment = [folder_model, '/' +config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_trt"]
+    save_experiment = [folder_model, '/profiling/' +config["model"] + "_" + config['model_type'] + "_" + str(batch_size) + "_trt"]
     loss, accuracy = benchmark(trt_mod, test_loader, yolo_anchors, clamp_max, quantize= True, save_exp=save_experiment)
     print("trt_mod " + config["model"] + "_" + config['model_type'] +" loss: {:.5f} accuracy: {:.5f}".format(loss, accuracy))
     

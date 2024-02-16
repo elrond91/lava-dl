@@ -7,7 +7,6 @@ import time
 import torch.backends.cudnn as cudnn
 import numpy as np
 import threading
-from datetime import datetime
 
 import pytorch_quantization
 from pytorch_quantization import nn as quant_nn
@@ -49,7 +48,7 @@ def measuse_power(debug=False):
         tot = int(info.split("tot")[1].split("}")[0].split("{")[1].split("power")[1].split(",")[0].split(":")[1])
         GPU_PERCENT = float(info.split("load")[1].split("}")[0].split(":")[1])
         # add % GPU
-        return datetime.now().strftime('%Y-%m-%d %H:%M:%S'), VDD_CPU_GPU_CV, VDD_SOC, tot, GPU_PERCENT
+        return time.time(), VDD_CPU_GPU_CV, VDD_SOC, tot, GPU_PERCENT
     except:
         return None
 
@@ -169,7 +168,7 @@ def benchmark(model, dataloader, anchors, clamp_max, quantize = False, save_exp 
     stats = slayer.utils.LearningStats(accuracy_str='AP@0.5')
     ap_stats = obd.bbox.metrics.APstats(iou_threshold=0.5)
     jstats = JTOPStats()
-    for idx in range(33):
+    for idx in range(10):
         print('iteration... ', idx)
         for i, (inputs_t, targets_t, bboxes_t) in enumerate(dataloader):
             model.eval()
@@ -239,10 +238,11 @@ def benchmark(model, dataloader, anchors, clamp_max, quantize = False, save_exp 
 
 
 def benchmark_model(config, folder_model, batch_size = 1):
+    print('Starting exp: ' + str(batch_size))
     print('Using GPUs {}'.format(config["gpu"]))
     device = torch.device('cuda:{}'.format(config["gpu"]))
     
-    os.makedirs('profiling', exist_ok=True)
+    os.makedirs(folder_model + '/profiling', exist_ok=True)
     
     print('Creating Network')
     if config["model"] == 'yolov3_ann':
@@ -374,7 +374,15 @@ if __name__ == '__main__':
         'tgt_iou_thr': 0.5,
     }
     base_path = '/home/lecampos/models/'
-    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head')
+    # benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head')
+    
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=2)
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=4)
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=6)
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=8)
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=16)
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=32)
+    benchmark_model(config, base_path + 'Trained_tiny_yolov3_ann_single-head', batch_size=64)
     
     # 1) single-head [batch = 1; batch = [2, 4, 8, 16, 32, 64]] -> tensorRT + quant
     # 2) tiny_yolov3 [batch = 1; batch = [2, 4, 8, 16, 32, 64]] -> tensorRT + quant
